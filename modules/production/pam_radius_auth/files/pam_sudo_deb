@@ -1,0 +1,8 @@
+#%PAM-1.0
+# This file is managed by Puppet
+auth       required   pam_env.so readenv=1 user_readenv=0
+auth       required   pam_env.so readenv=1 envfile=/etc/default/locale user_readenv=0
+auth [success=done new_authtok_reqd=done ignore=ignore default=die] pam_radius_auth.so localifdown
+@include common-auth
+@include common-account
+@include common-session-noninteractive

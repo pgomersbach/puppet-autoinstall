@@ -1,0 +1,5 @@
+deb http://ftp.nl.debian.org/debian squeeze main non-free contrib
+deb-src http://ftp.nl.debian.org/debian squeeze main non-free contrib
+deb http://security.debian.org/ squeeze/updates main contrib non-free
+deb-src http://security.debian.org/ squeeze/updates main contrib non-free
+deb http://apt.puppetlabs.com/ squeeze main

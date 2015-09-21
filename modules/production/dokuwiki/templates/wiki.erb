@@ -1,0 +1,33 @@
+#####
+## ATENTION: This file is managed automaticaly by puppet.
+## While it can still be managed manually, it is definitely not recommended.
+
+## MediaWiki <%= name %>
+
+<VirtualHost <%= ip %>:<%= port %>>
+	<Directory /var/lib/mediawiki/wikis/<%= name %>>
+		Options +FollowSymLinks
+		AllowOverride All
+		order allow,deny
+		allow from all
+	</Directory>
+
+	# some directories must be protected
+	<Directory /var/lib/mediawiki/wikis/<%= name %>/config>
+		Options -FollowSymLinks
+		AllowOverride None
+	</Directory>
+	<Directory /var/lib/mediawiki/wikis/<%= name %>/upload>
+		Options -FollowSymLinks
+		AllowOverride None
+	</Directory>
+	
+	ServerAdmin <%= admin %>
+	DocumentRoot /var/lib/mediawiki/wikis/<%= name %>
+	ServerPath /<%= servername %>
+	ServerName <%= servername %>
+	ServerAlias <%= serveralias %>
+	ErrorLog /var/log/apache2/error_log-<%= name %>
+	CustomLog /var/log/apache2/access_log-<%= name %> common
+</VirtualHost>
+

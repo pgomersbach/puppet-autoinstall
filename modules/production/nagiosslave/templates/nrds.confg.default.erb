@@ -1,0 +1,14 @@
+command[__HOST__] = echo OK
+command[Current load] = $PLUGIN_DIR$\cpuload_nrpe_nt.exe 80 95
+command[C Partition] = $PLUGIN_DIR$\check_pdm.exe --disk --drive C: -w 97.5 -c 99.5
+command[Memory Usage] = $PLUGIN_DIR$\check_pdm.exe --memory -w 95 -c 99
+command[Pagefile Usage] = $PLUGIN_DIR$\check_pdm.exe --memory pagefile -w 80 -c 95
+command[DNS Client] = $PLUGIN_DIR$\service_nrpe_nt.exe "DNS Client"
+command[DCOM] = $PLUGIN_DIR$\service_nrpe_nt.exe "DCOM Server Process Launcher"
+command[EventLog] = $PLUGIN_DIR$\service_nrpe_nt.exe "Windows Event Log"
+command[WMI] = $PLUGIN_DIR$\service_nrpe_nt.exe "Windows Management Instrumentation"
+command[W32Time] = $PLUGIN_DIR$\service_nrpe_nt.exe "Windows Time"
+command[RPC] = $PLUGIN_DIR$\service_nrpe_nt.exe "Remote Procedure Call (RPC)"
+command[Task Scheduler] = $PLUGIN_DIR$\service_nrpe_nt.exe "Task Scheduler"
+command[Server] = $PLUGIN_DIR$\service_nrpe_nt.exe "Server"
+command[Workstation] = $PLUGIN_DIR$\service_nrpe_nt.exe "Workstation"

@@ -1,0 +1,1908 @@
+#!/usr/bin/perl
+# Modificatios for rely, see comment in text
+# Author: Martin Fuerstenau, Oce Printing Systems
+#         martin.fuerstenau_at_oce.com or Martin.fuerstenau_at_nagiossw.org
+#
+# Date:   22 Jan 2009
+# 
+# TOPdesk (http://www.topdesk.com) is a service management tool owned and developed by 
+# TOPdesk, Postbus 559, 2600 AN Delft, Netherlands
+#
+# Purpose and features of the program:
+#
+# - Submitting incidents (trouble tickets) to TOPdesk
+#
+# - Placing an acknowledge together with a comment containing the indicent number and a 
+#   hyperlink to the incident ticket in Nagios. Further notification fromnagios will
+#   be suppressed
+#
+# - Can handle more than one TOPdesk server
+#
+# - Can close/complete incidents
+#   - Based on a timeframe
+#   - Everytime
+#   - Exeption: The file with the timestamp and the TOPdesk UNID has been deleted
+#     (see below)
+#   - Decision for close/complete is based on the TOPdesk Server
+#
+# - Default mappings for duration (Severity)
+#   - Host:
+#     DOWN        = Severity 1
+#     UNREACHABLE = Severity 3
+#   - Service:
+#     CRITICAL = Severity 1
+#     WARNING  = Severity 2
+#     UNKNOWN  = Severity 3
+#
+# - Mappings can be overritten with -t
+#   - Form:
+#     "CRITICAL=1 WARNING=3 down=2"
+#   - Lowercase letters will be automatically converted into uppercase ones because Nagios is 
+#     delivering uppercase ones.
+#   - Everything can be replaced from one mapping (for example CRITICAL) to all mappings
+#
+#
+# History and Changes:
+# 
+# - 22 Jan 2009 Version 1
+#    - First released version
+#
+# - 06 Feb 2009 Version 1a
+#   - Minor - Helpfunction output updated. -T was not documented corrcetly
+#
+# - 25 Feb 2009 Version 1.1
+#   - New commandline switch -o or --typeofcall
+#     With this switch the default behavior of "Type of Call". Default is Incident.
+#     Every type available through the type of call pulldown menu from Topdesk is valid here.
+#   - Timestamp in the Request and Action field. Conversion is based on the Perl sprintf
+#     function. See "Make the topdesk time stamp" below and change it to your needs
+#   - Caller ($TD_USER) handled over the the Request and Action field. So now you will see
+#     who has placed the line  in your Topdesk
+#   - Some codeblocks moved for better reading
+#
+# - 24 Mar 2009 Version 1.2
+#   - Minor additions
+#     - Before trying to open an incident the Topdesk Server is pinged. No answer - no incident
+#     - If login is disabled the problem will be acknowledged in Nagios but only
+#       a warning message is posted as a comment instead of the ticket ID.
+#
+# - 02 Apr 2009 Version 1.3
+#   - set_acknowledge() splitted in set_comment() and  set_acknowledge(). So in case of trouble
+#     reaching Topdesk only a comment is added to the problem in Nagios instead of
+#     acknowledging the problem.
+#   - New option -k or --caller. The caller can be passed via commandline. Otherwise the default
+#     will be used.
+#   - New options -W, -w and -m. These options must be used together
+#     -W  Time to retry to open a ticket in minutes if Topdesk is not available.
+#     -w  Timeinterval for retrying in seconds. If not set default will take place.
+#     -m  Email address to send a mail if retries fail. Contains all informations from
+#         Nagios together with a additional warning.
+#     
+#     For example:
+#     - W 60 means that the script should retry 1 hour. If $TD_WAIT_RETRY is set to 60 it means
+#       retry for one hour every minute. 
+#
+#     This is only if the server is not available (ping). In all other cases only a comment in 
+#     Nagios is added.
+#   - New option -e. Type of call entry can be passed via commandline. Otherwise the default
+#     will be used. 
+#   - New option -l. 1 for 1st- or 2 for 2nd line call type can be passed via commandline.
+#     Otherwise the default (2, 2ndline) will be used. 
+# 
+# - 23 Apr 2009 Version 1.4
+#   - Portnumber different from default (for example :81) now supported. Minor Codechanges.
+#   - Variable $TD_PROTOCOL obsolete
+#   - New Variable $TD_SERVER
+#
+# - 28 Apr 2009 Version 1.4 Bugfix
+#   - Changed %TD_USER to %TD_USER_DEF. Was a typo in the published 
+#
+# - 25 May 2009 Version 1.5
+#   - Daylight saving time now supported
+#   - New variable $TD_TIMESTAMP_OFFSET and hash %TD_TIMESTAMP_OFFSET. The hash contains the offset
+#     in seconds between you local timezone and GMT(UTC). This value MUST be negative if you are 
+#     located westwards the Greenwich meridian.
+#   - The block with the date calculation has moved downwards, because it has to be behind the
+#     declaration of the hash.
+#
+# - 09 Nov 2009 Version 1.5 Bugfix
+#   - Removed the following block because it caused a bug in DST:
+#
+#     if ($DST == 0)
+#        {
+#        $TD_TIMESTAMP = $TD_TIMESTAMP - 3600;
+#        }
+#
+# - 12 Feb 2010 Version 1.5.1
+#   - Added one line in shit_happens():
+#
+#     $NAG_CONTACTEMAIL =~ s/ /,/isog;
+#
+#     So you can have now multiple mailadresses in a contact on Nagios seperated by blanks.
+#
+#
+# - 12 Feb 2010 Version 1.5.1
+#   - Added one line in shit_happens():
+#
+#     $NAG_CONTACTEMAIL =~ s/ /,/isog;
+#
+#     So you can have now multiple mailadresses in a contact on Nagios seperated by blanks.
+#
+# - 18 Mar 2010 Version 1.5.2
+#   - Around line 850 changed 
+#
+#     if ( $TD_INCIDENT_ID eq "ERROR")
+#        {
+#        set_comment();
+#        }
+#
+#     to
+#
+#     if ( $TD_INCIDENT_ID eq "ERROR")
+#        {
+#        set_comment();
+#        shit_happens();
+#        }
+#
+#     This was necessary due to the fact that otherwise no mail would be send
+#     that a ticket could not be opened
+#
+#     - Changed shit_happens from
+#
+#       sub shit_happens
+#           {
+#           open(MAIL, "|$MAILER");
+#       
+#       to
+#        
+#       sub shit_happens
+#           {
+#           if ($NAG_CONTACTEMAIL)
+#              {
+#              open(MAIL, "|$MAILER");
+#
+#       This ensures that shit_happens will only be executed with a mail address handled over
+#
+#
+# - 29 May 2010 Version 1.5.3
+#   - Added modifying operator group ($TD_GROUP)
+#     - Removed relevat line from create_incident()
+#     - New subroutine set_operator_incident() based on modify incident;
+#     - After creation of the incident the incident is reopened for editing like in
+#       modify_incident(). The operator group will be replaced. This was necessary due to the
+#       fact that a predefined operator(group) can not be replaced while creation.
+#
+#
+# - 22 July 2010 Version 1.6
+#
+#   - General:
+#     Due to the fact that Topdesk rom version 4.2 on uses the Mango interface as operator 
+#     interface it is no longer possible to derive either the incident id or the unid (unified
+#     identifier from the code ot the page. On one hand the manual for working with URLs is much
+#     more better than the old one - on the other hand they always mention the unid or the incident
+#     it, but there is no way to get as a return code or so. Seems like they have forgotten such
+#     a thing.
+#
+#     Topdesk Germany told me to use the self service interface because it is not Mango based. But
+#     there were 2 main problems:
+#     - only a subset of the fiels needed was available using the selfservice interface
+#     - the selfservice interface used session cookies.
+#
+#     So a lot of code rewriting had to be done because the code should cover all current versions
+#     of Topdesk. And it does.
+#
+#     the create_incident function was split in 2 parts
+#
+#     - create_incident using the selfservice interface
+#     - complete_create_incident using the operator interface
+#
+#     AS A RESULT OF THE THIS THE USER FOR CREATING THE TOPDESK ENTRIES MUST EXIST FOR BOTH INTERFACES
+#     WITH THE SAME RIGHTS ETC.
+#
+#     We have a new option -V to determine wether we have a 4.2 version or below (see below).
+#     
+#   - Changed get_incident_id(). Instead of deriving the incident id (card in Topdesk) from
+#     the webpage it is derived from the HTML title tag. On the loginpage it contains only the
+#     string TOPdesk. This works well for Topdesk version 4.2 too
+#   - Changed subroutine get_unid_tmp_file() to get_incident_id_tmp_file()
+#   - Changed filehandle TMP_UNID to TMP_INCIDENTID
+#   - Used $TD_INCIDENT_ID instead of $TD_UNID
+#   - Modified all URL buildings to use lookup=naam&lookupValue=$TD_INCIDENT_ID instaed of unid=$TD_UNID
+#   - Removed definition of $TD_UNID
+#   - Removed get_unid()
+#   - New operator -V - contains the Topdesk version. This is optional. Default is any version
+#     below 4.2.
+#   - New variable $COOKIE_JAR because we need to store oa cookie for 1st line incidents.
+#     We have to deal around with LWP::UserAgent instead of only using LWP:Simple.
+#   - Subroutine set_operator_incident() introduced with 1.5.3 is removed. set_operator_incident() was
+#     nesseccary because it is not possible to change the default operator while dreating the incident.
+#     So the incident had first to be created and as a second step the operator group had to be changed.
+#     From 1.5.4 on creating the incident is done in two steps which made set_operator_incident obsolete.
+#   - In the past $TD_NOTICE was unused. It is enabled now with -n | --notice=''. It fills out the notes field
+#     on the notes card
+#   - $TD_GROUP was replaced by $TD_OPERATOR, because in fact the field contains the operator which can be
+#     also a group
+#     From version 4.2 on:
+#    - If the name entered is an operator group the same entry is displayed in the fields "Operator" and "Operator group".
+#    - If the name entered is an operator name the corresponding group entry is displayed in the field and "Operator group".
+#   - Variable $TD_CREATE no longer used
+#     
+# - 23 Sept 2010 Version 1.6.1
+#
+#   - Bugfix:
+#     Category and subcatecory MUST be assigned during creation of the ticket instead of doing it in
+#     the modifying section. Otherwise mails regarding the incomplete incident will be sent to your calldesk
+#     and automatic operator group assignment will not work.
+#
+# - 23 Nov 2010 Version 1.6.2
+#
+#   - Bugfix:
+#     Message now inserted during creation phase instead of using the operator interface. It could happen,
+#     that an incident was created while the operator interface was not available. This caused an
+#     empty incident in topdesk.
+#
+# - 11 Jan 2011 Version 1.6.3
+#
+#   - Bugfix/Enhancement:
+#     New variable $HTTP_RET_CODE. We need it now in case we have a problem to connect to topdesk while the
+#     host reachable but the URL is not working. It was necessary due to the switch form LWP::Simple to LWP::UserAgent
+#     caused be Topdesk 4.2 and the use of cookies from the selfservice interface.
+#
+#     Affected subroutines:
+#
+#     - set_comment()
+#     - shit_happens()
+#     - get_incident_id()
+#
+# - 12 Sep 2011 Version 1.6.4
+#
+#   - Bugfix/Enhancement:
+#     Enhanced shit_happens(). Added some more information in the mail (category and subcategory) 
+#     to make it easier to add the incident by hand.
+#
+# - 03 Nov 2011 Version 1.6.5
+#
+#   - Bugfix/Enhancement:
+#     Enhanced ping(). Because icmp needs root priviledge it is now possible to submit an alternative
+#     protocol (udp or tcp) via commandline. Default is icmp.
+#
+#   - Change:
+#     Mail format modified (in case Topdesk is not reachable). The informations for adding the incident by
+#     after the recovery of Topdesk is better fromatted now.
+#
+# - 09 Dec 2011 Version 1.6.6
+#
+#   - Bugfix:
+#     --severity was not working due to a typo. -t was working. Fixed
+#
+#
+# - 08 Mar 2012 Version 1.6.7
+#
+#   - Enhancement:
+#     There are 4 boolean fields vrijelogisch1 - vrijelogisch4 in Topdesk which can be used for individual purpose.
+#     Setting one of this can be done by using --freelogic=1, --freelogic=2, --freelogic=3 or --freelogic=4. 
+#     What it does depends on the definiton your Topdesk admin has done.
+#
+# - 10 Sep 2012 Version 1.6.8
+#
+#   - Enhancement:
+#     - Added a linemapping (--linemap= "s1=l1 s2=l1"). So you can have different lines depending on the severity.
+#     - Priority for linemapping (--sevmapfirst). This is used in conjunction with severity mapping and line mapping.
+#       If (for example) a CRITICAL is mapped to sev2 instead of a sev1 a line mapping like "s1=l1 s2=l1" is nonsense
+#       because you will never have a sev1. So under "normal" conditions the the line mapping must be done before the
+#       severity is mapped
+#
+#
+# How it works:
+# 
+# Read the code. There is a lot of comments in it.
+#
+#
+# Setup:
+# In this script you only have to setup some variables and hashes to fit your requirements.
+# 
+# $TMP_DIR="/tmp";                           # Directory to store the UNID and the timestamp temporarily
+# $NAG_PIPE="/var/spool/nagios/nagios.cmd";  # The nagios command pipe
+# $TD_STATUS="2";                            # 1 indicates a first line incident, 2 indicates
+#
+# Place your login account(s) here:
+# %TD_USERNAME = (
+#                 "87.251.46.92" => "nagios",	   
+#                 "tdserver2.mycompany.com" => "Topdesk Account"	   
+#                 ); 
+#
+# Place your login password(s) here:
+# %TD_PASSWORD = (
+#                 "87.251.46.92" => "nagios",	   
+#                 "tdserver2.mycompany.com" => "place your password here"	   
+#                 ); 
+#
+# Place your caller field(s) here:
+# %TD_USER = (
+#              "tdserver1.mycompany.com" => "TD, Monitoring",	   
+#              "tdserver2.mycompany.com" => "TD, Monitoring"	   
+#              ); 
+#
+# Place your recovery behaviour here:
+# %TD_RECOVER = (
+#                 "tdserver1.mycompany.com" => "CLOSE",	   
+#                 "tdserver2.mycompany.com" => "COMPLETE"	   
+#                 ); 
+#
+# Place here a contact defined in Nagios. This contact is needed for
+# acknowledging. It is the contact which will place the comment with 
+# the hyperlink to your Topdesk ticket in Nagios:
+# %NAG_CONTACT = (
+#                 "tdserver1.mycompany.com" => "topdesk",	   
+#                 "tdserver2.mycompany.com" => "topdesk_test"	   
+#                 ); 
+#
+# In Nagios you have to 
+#
+# - define a notification command
+#
+#   # 'notify-by-topdesk-test' command definition
+#   define command{
+#   command_name    notify-by-topdesk-test
+#   command_line    handle_TD_incident -U http://tdserver1.mycompany.com -N $NOTIFICATIONTYPE$ -H $HOSTNAME$ -S "$SERVICEDESC$" -C 'Monitoring Tools' -c 'Nagios, Cacti, ...' -s $SERVICESTATE$ -M "$SERVICEOUTPUT$"
+#   }
+#
+# - add a contact for the host/service for TOPDesk
+#   define contact{
+#           contact_name                        topdesk_test
+#           alias                               topdesk_test
+#           service_notification_period         24x7
+#           host_notification_period            24x7
+#           service_notification_options        c,w,u,r
+#           host_notification_options           d,u,r
+#           service_notification_commands       notify-by-topdesk-test
+#           host_notification_commands          host-notify-by-topdesk-test
+#           email                               dummy or address from the caller field
+#           }
+#
+# - add the contact to the appopriate contactgroup for notification
+# 
+# Synopsis (not complete):
+# 
+# handle_TD_incident -U|--url <TOPdesk base URL> -H|--host <host> -S|--service <service> -N|--notificationtype <Nagios notificationtype> -n|--notice <Notes> -b|--briefdescription <Brief Description> -M|--message <message> -C|--category <category> -c|--subcategory <subcategory> -k|--caller <Caller> -e|--entry <Entry> -s|--state <Nagios state> -o|--typeofcall <Incident or Security...> -l|--line <1=1stline call, 2=2ndline call> -V|--tdversion <Topdesk version> -O|--operator <operator group> -t|--severity <\"CRITICAL=2 WARNING=3 ...\"> -T|--time <Time in Minutes> -W|--wait <wait for retry> -w|--retry <retry interval> -m|--mail <email-address> -r|--ready
+#
+#----------------------------------------------------------------------
+
+# For a better understanding:
+# All variables belonging to Nagios are starting with NAG_
+# All variables belonging to TOPdesk are starting with TD_
+
+use strict;
+
+use Getopt::Long;
+use LWP::Simple;
+use LWP::UserAgent;
+use HTTP::Cookies;
+use Time::localtime;
+use Date::Calc qw(:all);
+use Net::Ping;
+
+#--- Start presets and declarations -------------------------------------
+
+my $PROGNAME="handle_TD_incident";            # Name of program
+
+my $TIMESTAMP=time();                         # Sets the Timestamp
+                                              # - for acknowledge in Nagios
+                                              # - for to be stored in the tempory file which contains 
+                                              #   the timestamp of ack and the unid for the incident
+
+my $TD_TIMESTAMP;                             # Sets the timestamps for the actions in TOPdesk.
+                                              # Otherwise you will not know when a message/action
+                                              # took place.
+my $TD_TIMESTAMP_OFFSET;                      # Because Time_to_Date() uses UTC and localtime() is not
+                                              # aware of Daylight Saving Time (DST) we nee a offset in seconds.
+                                              
+my $TIME_DIFF="";                             # Difference between actual timestamp and stored timestamp
+my $READY="";                                 # Always complete or close an incident
+my $HELP="";                                  # For printing the help message
+
+my $MAILER="/usr/sbin/sendmail -t";           # Mail command used
+                                              
+my $MAX_AGE="";                               # Max. age in minutes for automatic completion or closing
+                                              # or closing of a ticket. If a sercvice or host down recovers
+                                              # this value handled over by commandline. Than the stored timestamp 
+                                              # will be compared with the actual timestamp. The result will be compared 
+                                              # with $MAX_AGE. If it is smaller or equal $MAX_AGE a comment will be placed
+                                              # into the ticket and the ticket will be closed/completed. The tempfile will
+                                              # be removed. Otherwise only the comment will be placed into the ticket
+                                              # and the tempfile will be removed.
+
+my $URL="";                                   # Here we store the contructed URL to get
+my $TMP_DIR="/tmp";                           # Directory to store the UNID and the timestamp temporarily
+my $TMP_FILE_CONTENT="";                      # As it says
+
+my $NOA="";                                   # Number of arguments handled over
+                                              # the program
+
+my $NAG_PIPE="/usr/local/nagios/var/rw/nagios.cmd";  # The nagios command pipe
+
+my $NAG_HOST="";                              # The host causing the alert
+my $NAG_SERVICE="";                           # The service causing the alert
+my $NAG_MESSAGE="";                           # Message submitted from Nagios
+my $NAG_STATE="";                             # The state Nagios delivers
+
+my $NAG_NOTIFICATIONTYPE="";                  # Nagios notification type. Can be:
+                                              #
+                                              # - PROBLEM (used)
+                                              # - RECOVERY (used)
+                                              # - ACKNOWLEDGEMENT (used)
+                                              # - FLAPPINGSTART (unused)
+                                              # - FLAPPINGSTOP (unused)
+                                              # - FLAPPINGDISABLED (unused)
+                                              # - DOWNTIMESTART (unused)
+                                              # - DOWNTIMEEND (unused)
+                                              # - DOWNTIMECANCELLED (unused)
+
+my $NAG_CONTACT="";                           # - Nagios Contact for TOPdesk. Will be filled later on
+                                              #   automatically in an array of the same name
+
+my $NAG_CONTACTEMAIL="";                      # - Nagios Contact email. If the Topdesk host
+                                              #   cannot be reached a email with the content
+                                              #   of the ticket will be sent to this mail address
+                                              #   with an alert. Maybe the calldesk or something
+                                              #   like that.
+
+
+my $TD_INPUT = '';                            # Entry field in TOPdesk
+my $TD_INPUT_DEF = 'Web Interface';           # Entry field in TOPdesk (default)
+
+my $TD_INPUT_TYPE = "";                       # Type of call in TOPdesk
+my $TD_INPUT_TYPE_DEF="Incident";             # Type of call in TOPdesk (default)
+
+my $NAG_TD_SEV_MAPPING="";                    # Contains an alternative mapping in the form
+                                              # "CRITICAL=1 WARNING=3" etc.
+                                              # Lowercase letters will be converted to uppercase ones
+                                              # You have only to add mappings, which should be 
+                                              # different from standard mapping
+                                              # Mapping should be handled over as a string so don't
+                                              # omit the quotes
+
+my $NAG_TD_SEV_MAP1ST;                        # This is used in conjunction with severity mapping and
+                                              # line mapping. 
+
+my %NAG_TD_SEV_MAPPING;                       # $NAG_TD_SEV_MAPPING will be convert in a hash. Her
+                                              # is it.
+
+my @NAG_TD_SEV_MAPPING;                       # Used in conversion
+my $NAG_TD_SEV_MAPPING_KEY="";                # Used in conversion too
+my $NAG_TD_SEV_MAPPING_VALUE="";              # Used in conversion too
+
+my %NAG_TD_STATUS_LINEMAP;                    # $NAG_TD_STATUS_LINEMAP will be convert in a hash. Her
+                                              # is it.
+
+my @NAG_TD_STATUS_LINEMAP;                    # Used in conversion
+my $NAG_TD_STATUS_LINEMAP_KEY="";             # Used in conversion too
+my $NAG_TD_STATUS_LINEMAP_VALUE="";           # Used in conversion too
+
+my $TD_OBJECT='unknown';                      # Quite clear
+
+my $TD_OPERATOR='';                           # This is the operator or operator group
+
+my $TD_NOTICE='';                             # Fill out the notes field on the notes card
+my $TD_USERNAME="Nagios";                           # Login-Name TopDeskServer
+my $TD_PASSWORD="nagios";                           # Password for Login-Name
+my $TD_USER="";                               # Caller
+my $TD_USER_DEF="";                           # Default Caller
+my $TD_WAIT="";                               # Time to wait in seconds if a host is not reachable
+my $TD_WAIT_RETRY="";                         # Time to wait retry interval in seconds
+my $TD_WAIT_RETRY_DEF="10";                   # Time to wait retry interval in seconds (default)
+
+my $TD_RECOVER="";                            # Contain the string "close" or "complete" The decision to
+                                              # complete or close a ticket is based on the policy used
+                                              # on the given server annd therfore it depends on
+                                              # the server name.
+                                              
+my $TD_SEVERITY="";                           # Must contain the string 'Severity 1',
+                                              # 'Severity 2','Severity 3' or 'Severity 4'
+                                              # Due to the fact the Nagios only nows critical/down,
+                                              # warning, unknown/unreachable
+                                              # the use of all 4 is very limited.
+
+my $TD_SEV_UNMAPPED="";                       # Contains the unmapped severity for linemapping,
+
+my $TD_STATUS="";                             # 1 indicates a first line incident, 2 indicates
+                                              # a second line incident.
+my $TD_STATUS_DEF="2";                        # The default
+my $NAG_TD_STATUS_LINEMAP="";                 # Contains an alternative line/severity mapping in the form
+                                              # "s2=l1 s1=l1" etc.
+                                              # Lowercase letters will be converted to uppercase ones
+                                              # You have only to add mappings, which should be 
+                                              # different from standard mapping
+                                              # Mapping should be handled over as a string so don't
+                                              # omit the quotes
+                                              
+my $TD_MESSAGE="";                            # Message submitted to Topdesk
+my $TD_RESULT="";                             # Result Page from TOPdesk
+my $TD_CATEGORY="";                           # Category handled over from nagios
+my $TD_BR_DESC="";                            # Fills the field brief description
+my $TD_SUBCATEGORY="";                        # Subcategory handled over from nagios
+my $TD_INCIDENT_ID="";                        # The incident number get back from TOPdesk
+
+my $TD_URL="";                                # TOPdesk server name in the form http://servername
+                                              # or https://servername
+my $TD_SERVER="";                             # TOPdesk server name
+my $TD_VERSION="";                            # TOPdesk version
+my $TD_VERSION_DEF="4.1";                     # TOPdesk version default
+my $TD_INTERFACE="";                          # TOPdesk use public or secure interface?
+
+my $UserAgent = LWP::UserAgent->new;          # We have to use it now. See libwww-perl
+my $Cookie_Jar;                               # We have to store a cookie. Here will the location of
+                                              # the cookie been stored
+
+my $HTTP_RET_CODE;                            # We need it now in case we have a problem to 
+                                              # to connect to topdesk while the host reachable but
+                                              # the URL is not working
+
+my $PING_PROT_DEF="icmp";                     # Default protocol for ping.
+my $PING_PROT;                                # We have another protocol for ping?
+
+my $FREE_LOGIC;                               # There are 4 boolean fields vrijelogisch1 - vrijelogisch4
+                                              # in Topdesk which can be used for individual purpose.
+                                              # Setting one of this can be done using this values
+
+
+
+#--- End presets --------------------------------------------------------
+
+# First we have to fix  the number of arguments
+
+$NOA=$#ARGV;
+
+Getopt::Long::Configure('bundling');
+GetOptions
+	("b=s" => \$TD_BR_DESC,           "briefdescription=s"  => \$TD_BR_DESC,
+         "C=s" => \$TD_CATEGORY,          "category=s"          => \$TD_CATEGORY,
+	 "c=s" => \$TD_SUBCATEGORY,       "subcategory=s"       => \$TD_SUBCATEGORY,
+	 "e=s" => \$TD_INPUT,             "entry=s"             => \$TD_INPUT,
+         "h"   => \$HELP,                 "help"                => \$HELP,
+	 "H=s" => \$NAG_HOST,             "host=s"              => \$NAG_HOST,
+	 "k=s" => \$TD_USER       ,       "caller=s"            => \$TD_USER,
+	 "l=s" => \$TD_STATUS,            "line=s"              => \$TD_STATUS,
+	                                  "linemap=s"           => \$NAG_TD_STATUS_LINEMAP,
+	 "N=s" => \$NAG_NOTIFICATIONTYPE, "notificationtype=s"  => \$NAG_NOTIFICATIONTYPE,
+	 "m=s" => \$NAG_CONTACTEMAIL,     "mail=s"              => \$NAG_CONTACTEMAIL,
+	 "M=s" => \$NAG_MESSAGE,          "message=s"           => \$NAG_MESSAGE,
+	 "n=s" => \$TD_NOTICE,            "notice=s"            => \$TD_NOTICE,
+	 "o=s" => \$TD_INPUT_TYPE,        "typeofcall=s"        => \$TD_INPUT_TYPE,
+	 "O=s" => \$TD_OPERATOR,          "operator=s"          => \$TD_OPERATOR,
+	 "r"   => \$READY,                "ready"               => \$READY,
+	 "s=s" => \$NAG_STATE,            "state=s"             => \$NAG_STATE,
+	 "S=s" => \$NAG_SERVICE,          "service=s"           => \$NAG_SERVICE,
+	 "t=s" => \$NAG_TD_SEV_MAPPING,   "severity=s"          => \$NAG_TD_SEV_MAPPING,
+	                                  "sevmapfirst=s"       => \$NAG_TD_SEV_MAP1ST,
+	 "T=s" => \$MAX_AGE,              "time=s"              => \$MAX_AGE,
+	 "U=s" => \$TD_URL,               "url=s"               => \$TD_URL,
+	 "V=s" => \$TD_VERSION,           "tdversion=s"         => \$TD_VERSION,
+	 "w=s" => \$TD_WAIT_RETRY,        "waitretry=s"         => \$TD_WAIT_RETRY,
+	                                  "ping=s"              => \$PING_PROT,
+                                          "freelogic=s"         => \$FREE_LOGIC,
+	 "W=s" => \$TD_WAIT,              "wait=s"              => \$TD_WAIT);
+
+
+# First of all test if it a call give by Nagios problem acknowledge 
+# If yes get out of here
+
+if ($NAG_NOTIFICATIONTYPE eq "ACKNOWLEDGEMENT" )
+   {
+   exit 0;
+   }
+
+if ($NAG_NOTIFICATIONTYPE eq "FLAPPINGSTART" )
+   {
+   exit 0;
+   }
+
+if ($NAG_NOTIFICATIONTYPE eq "FLAPPINGSTOP" )
+   {
+   exit 0;
+   }
+
+if ($NAG_NOTIFICATIONTYPE eq "FLAPPINGDISABLED" )
+   {
+   exit 0;
+   }
+
+if ($NAG_NOTIFICATIONTYPE eq "DOWNTIMESTART" )
+   {
+   exit 0;
+   }
+
+if ($NAG_NOTIFICATIONTYPE eq "DOWNTIMEEND" )
+   {
+   exit 0;
+   }
+
+if ($NAG_NOTIFICATIONTYPE eq "DOWNTIMECANCELLED" )
+   {
+   exit 0;
+   }
+
+# Setting the Topdesk timestamp to timesstamp - we need it later
+
+$TD_TIMESTAMP = $TIMESTAMP;
+
+# So now we check the neccessary arguments given to the script
+
+# 1. Only help?
+
+if ($HELP)
+   {
+   print_help();
+   exit 0;
+   }
+
+# Right number of arguments (therefore NOA :-)) )
+
+if ( $NOA == -1 )
+   {
+   print_usage();
+   exit 1;
+   }
+
+if ($FREE_LOGIC)
+   {
+   if ( $FREE_LOGIC > 4 )
+      {
+      print "Error! freelogic must be in the range from 1 to 4!\n\n";
+      print_help();
+      exit 2;
+      }
+   }
+
+# Do we have a URL?
+
+if (!$TD_URL)
+   {
+   print "No URL for TOPDesk server given!\n\n";
+   print_help();
+   exit 1;
+   }
+
+# Is $TD_INPUT_TYPE handled over via commandline? If not use default.
+
+if (!$TD_INPUT_TYPE)
+   {
+   $TD_INPUT_TYPE=$TD_INPUT_TYPE_DEF;
+   }
+
+# Is $TD_INPUT handled over via commandline? If not use default.
+
+if (!$TD_INPUT)
+   {
+   $TD_INPUT=$TD_INPUT_DEF;
+   }
+
+# Is $TD_VERSION handled over via commandline? If not use default.
+
+if (!$TD_VERSION)
+   {
+   $TD_VERSION=$TD_VERSION_DEF;
+   }
+
+if ( $TD_VERSION <= 4.1 )
+   {
+   $TD_INTERFACE="secure";
+   }
+   
+if ( $TD_VERSION >= 4.2 )
+   {
+   $TD_INTERFACE="public";
+   }
+
+if ( $TD_VERSION == 5.0 )
+   {
+   $TD_INTERFACE="secure";
+   }
+
+
+# Is $TD_STATUS handled over via commandline? If not use default.
+
+if (!$TD_STATUS)
+   {
+   $TD_STATUS=$TD_STATUS_DEF;
+   }
+
+# Is $TD_WAIT handled over via commandline? If not use default. Same for retry interval.
+
+if ($TD_WAIT)
+   {
+
+   # Because $TD_WAIT is in minutes we have to convert it to seconds for using
+         
+   $TD_WAIT = $TD_WAIT * 60;
+   if (!$TD_WAIT_RETRY)
+      {
+      $TD_WAIT_RETRY=$TD_WAIT_RETRY_DEF;
+      }
+
+   if (!$NAG_CONTACTEMAIL)
+      {
+      print "If -W is set you also has to enter a email address with -m!\n\n";
+      print_help();
+      exit 1;
+      }
+   }
+
+if (!$TD_CATEGORY)
+   {
+   print "No category for TOPDesk server given!\n\n";
+   print_help();
+   exit 1;
+   }
+
+if (!$TD_SUBCATEGORY)
+   {
+   print "No sub category for TOPDesk server given!\n\n";
+   print_help();
+   exit 1;
+   }
+
+if (!$NAG_HOST)
+   {
+   print "No host from Nagios server given!\n\n";
+   print_help();
+   exit 1;
+   }
+
+if (!$NAG_STATE)
+   {
+   print "No state from Nagios given!\n\n";
+   print_help();
+   exit 1;
+   }
+
+if (!$NAG_SERVICE)
+   {
+   if ($NAG_STATE eq 'CRITICAL' || $NAG_STATE eq 'WARNING' || $NAG_STATE eq 'UNKNOWN')
+      {
+      print "No service from Nagios server given!\n\n";
+      print_help();
+      exit 1;
+      }
+   }
+
+if ($NAG_TD_SEV_MAP1ST)
+   {
+   if (length $NAG_TD_STATUS_LINEMAP)
+      {
+      print "--sevmapfirst needs --linemap !\n\n";
+      print_help();
+      exit 1;
+      }
+   }
+
+if (!$NAG_MESSAGE)
+   {
+   print "No message from Nagios given!\n\n";
+   print_help();
+   exit 1;
+   }
+else
+   {
+   # Remove HTML code
+   $NAG_MESSAGE =~ s/<[Bb][Rr]>//g;
+   }
+
+if ($PING_PROT)
+   {
+   $PING_PROT =~ tr/A-Z/a-z/; 
+
+   if ($PING_PROT ne 'tcp' && $PING_PROT ne 'udp' )
+      {
+      print "Unknow protocol for ping. Only icmp (only user root) ,tcp and udp are allowed!\n\n";
+      print_help();
+      exit 1;
+      }
+   }
+else
+   {
+   $PING_PROT=$PING_PROT_DEF;
+   }
+
+if ($MAX_AGE)
+   {
+   # Make seconds from the minutes
+   $MAX_AGE = $MAX_AGE * 60;
+   }
+
+
+# Well, well well ... here we set up the array with alternative mappings
+# for the severity code. We use it later
+
+if ($NAG_TD_SEV_MAPPING)
+   {
+   $NAG_TD_SEV_MAPPING = uc($NAG_TD_SEV_MAPPING);
+   $NAG_TD_SEV_MAPPING =~ s/=/ /isog;
+   $NAG_TD_SEV_MAPPING =~ s/\s+/ /isog;
+   @NAG_TD_SEV_MAPPING = split(/ /, $NAG_TD_SEV_MAPPING);
+   
+   while(@NAG_TD_SEV_MAPPING)
+        {
+        $NAG_TD_SEV_MAPPING_KEY = shift(@NAG_TD_SEV_MAPPING);
+        $NAG_TD_SEV_MAPPING_VALUE = shift(@NAG_TD_SEV_MAPPING);
+        $NAG_TD_SEV_MAPPING{$NAG_TD_SEV_MAPPING_KEY} = $NAG_TD_SEV_MAPPING_VALUE;
+        }
+   
+   }
+
+
+# Now we map states from Nagios. If an alternative mapping is in the hash
+# it will be used
+# 
+# Default mappings Host:
+#
+# DOWN        = Severity 1
+# UNREACHABLE = Severity 3
+#
+# Default mappings Service:
+#
+# CRITICAL = Severity 1
+# WARNING  = Severity 2
+# UNKNOWN  = Severity 3
+
+if ($NAG_STATE eq 'CRITICAL' )
+   {
+   $TD_SEV_UNMAPPED="Severity 1";
+   if ($NAG_TD_SEV_MAPPING{$NAG_STATE})
+      {
+      $TD_SEVERITY="Severity ".$NAG_TD_SEV_MAPPING{$NAG_STATE};
+      }
+   else
+      {
+      $TD_SEVERITY="Severity 1";
+      }
+   }
+
+if ($NAG_STATE eq 'DOWN')
+   {
+   $TD_SEV_UNMAPPED="Severity 1";
+   if ($NAG_TD_SEV_MAPPING{$NAG_STATE})
+      {
+      $TD_SEVERITY="Severity ".$NAG_TD_SEV_MAPPING{$NAG_STATE};
+      }
+   else
+      {
+      $TD_SEVERITY="Severity 1";
+      }
+   }
+
+if ($NAG_STATE eq 'WARNING')
+   {
+   $TD_SEV_UNMAPPED="Severity 2";
+   if ($NAG_TD_SEV_MAPPING{$NAG_STATE})
+      {
+      $TD_SEVERITY="Severity ".$NAG_TD_SEV_MAPPING{$NAG_STATE};
+      }
+   else
+      {
+      $TD_SEVERITY="Severity 2";
+      }
+   }
+
+if ($NAG_STATE eq 'UNREACHABLE')
+   {
+   $TD_SEV_UNMAPPED="Severity 3";
+   if ($NAG_TD_SEV_MAPPING{$NAG_STATE})
+      {
+      $TD_SEVERITY="Severity ".$NAG_TD_SEV_MAPPING{$NAG_STATE};
+      }
+   else
+      {
+      $TD_SEVERITY="Severity 3";
+      }
+   }
+   
+if ($NAG_STATE eq 'UNKNOWN')
+   {
+   $TD_SEV_UNMAPPED="Severity 3";
+   if ($NAG_TD_SEV_MAPPING{$NAG_STATE})
+      {
+      $TD_SEVERITY="Severity ".$NAG_TD_SEV_MAPPING{$NAG_STATE};
+      }
+   else
+      {
+      $TD_SEVERITY="Severity 3";
+      }
+   }
+
+
+# Another well, well well ... here we set up the array with alternative mappings
+# for the line (1st or 2nd) and do the mapping depending ot the severity.
+
+if ($NAG_TD_STATUS_LINEMAP)
+   {
+   $NAG_TD_STATUS_LINEMAP = uc($NAG_TD_STATUS_LINEMAP);
+   $NAG_TD_STATUS_LINEMAP =~ s/=/ /isog;
+   $NAG_TD_STATUS_LINEMAP =~ s/\s+/ /isog;
+   @NAG_TD_STATUS_LINEMAP = split(/ /, $NAG_TD_STATUS_LINEMAP);
+   
+   while(@NAG_TD_STATUS_LINEMAP)
+        {
+        $NAG_TD_STATUS_LINEMAP_KEY = shift(@NAG_TD_STATUS_LINEMAP);
+
+        if ($NAG_TD_STATUS_LINEMAP_KEY !=~ m/^s/isog)
+           {
+           print "Line mapping not in an appropriate form. Please correct!\n\n";
+           print_help();
+           }
+
+        # This is the trick. The severity is in the form "Severity 3" (see above). Because we change the s
+        # to "Severity " we can use $TD_SEVERITY as key for %NAG_TD_STATUS_LINEMAP later and will have the correct
+        # line
+        
+        $NAG_TD_STATUS_LINEMAP_KEY =~ s/s/Severity /isog;
+           
+        $NAG_TD_STATUS_LINEMAP_VALUE = shift(@NAG_TD_STATUS_LINEMAP);
+
+        if ($NAG_TD_STATUS_LINEMAP_VALUE !=~ m/^l/isog)
+           {
+           print "Line mapping not in an appropriate form. Please correct!\n\n";
+           print_help();
+           }
+
+        $NAG_TD_STATUS_LINEMAP_VALUE =~ s/l//isog;
+        
+        $NAG_TD_STATUS_LINEMAP{$NAG_TD_STATUS_LINEMAP_KEY} = $NAG_TD_STATUS_LINEMAP_VALUE;
+        }
+
+   if (!$NAG_TD_SEV_MAP1ST)
+      {
+      $TD_STATUS=$NAG_TD_STATUS_LINEMAP{$TD_SEV_UNMAPPED};
+      }
+   else
+      {
+      $TD_STATUS=$NAG_TD_STATUS_LINEMAP{$TD_SEVERITY};
+      }
+   }
+
+
+# So now we seperate the protocol and server name - we need it seperated for the following arrays
+
+my $TD_SERVER=$TD_URL;
+
+$TD_SERVER=~s/\/\///isog;
+my @URL_BASE=split(/:/, $TD_SERVER);
+
+$TD_SERVER=$URL_BASE[1];
+
+#The following hashes will add the appropriate user, password etc. to the given servers.
+
+my %TD_USERNAME = (
+                  "servicedesk.rely.nl" => "Nagios"	   
+                  ); 
+
+my %TD_PASSWORD = (
+                  "servicedesk.rely.nl" => "nagios"	   
+                  ); 
+
+
+# Place your recovery behaviour here:
+my %TD_RECOVER = (
+                 "servicedesk.rely.nl" => "CLOSE"
+                 );
+
+# The default caller
+
+my %TD_USER_DEF = (
+                 "servicedesk.rely.nl" => "Nagios"	   
+                  ); 
+
+my %TD_RECOVER = (
+                 "servicedesk.rely.nl" => "CLOSE"	   
+                 ); 
+
+my %NAG_CONTACT = (
+                  "servicedesk.rely.nl" => "topdesk"	   
+                  ); 
+
+my %TD_TIMESTAMP_OFFSET = (
+                  "servicedesk.rely.nl" => "3600",
+                  "tdserver2.mycompany.com" => "3600"
+                  ); 
+
+# Now we fill the variables with the values from the hashes because it is easier to handle 
+# variables instead of hashes or arrays
+
+$TD_USERNAME=$TD_USERNAME{$TD_SERVER};
+$TD_USER_DEF=$TD_USER_DEF{$TD_SERVER};
+$TD_PASSWORD=$TD_PASSWORD{$TD_SERVER};
+$NAG_CONTACT=$NAG_CONTACT{$TD_SERVER};
+$TD_RECOVER=$TD_RECOVER{$TD_SERVER};
+$TD_TIMESTAMP_OFFSET=$TD_TIMESTAMP_OFFSET{$TD_SERVER};
+
+# the caller is not set set the default caller
+
+if (!$TD_USER)
+   {
+   $TD_USER=$TD_USER_DEF;
+   }
+
+
+
+# Make the topdesk time stamp.
+
+# Timezone offset
+$TD_TIMESTAMP = $TD_TIMESTAMP + $TD_TIMESTAMP_OFFSET; 
+
+# The values defiverd here are senseless. We only need DST (Daylight Saving Time)
+# But it so we do not need another Perl module for getting DST
+
+(my $YEAR,my $MONTH,my $DAY, my $HOUR,my $MINUTE,my $SEC,my $xx,my $yy,my $DST) = System_Clock();
+
+
+if ($DST == 1)
+   {
+   $TD_TIMESTAMP = $TD_TIMESTAMP + 3600;
+   }
+   
+($YEAR,$MONTH,$DAY,$HOUR,$MINUTE,$SEC) = Time_to_Date($TD_TIMESTAMP);
+
+$TD_TIMESTAMP = sprintf("%02d %.3s %s %02d:%02d",$DAY,Month_to_Text($MONTH),$YEAR,$HOUR,$MINUTE);
+
+
+
+# Now we have to set up the right message to handle over to Topdesk
+
+if ($NAG_STATE eq 'DOWN' || $NAG_STATE eq 'UNREACHABLE')
+   {
+   # Paul Gomersbach, add link to topdesk message
+   #$TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST reports to be $NAG_STATE. - Message: $NAG_MESSAGE";
+   $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST reports to be $NAG_STATE. - Message: $NAG_MESSAGE http://nagios.rely.nl/nagiosxi/includes/components/xicore/status.php?host=$NAG_HOST";
+   }
+
+if ($NAG_STATE eq 'CRITICAL' || $NAG_STATE eq 'WARNING' || $NAG_STATE eq 'UNKNOWN')
+   {
+   # Paul Gomersbach, add link to topdesk message
+   #$TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST - Service $NAG_SERVICE reports to be $NAG_STATE. - Message: $NAG_MESSAGE";
+   $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST - Service $NAG_SERVICE reports to be $NAG_STATE. - Message: $NAG_MESSAGE http://nagios.rely.nl/nagiosxi/includes/components/xicore/status.php?host=$NAG_HOST";
+   }
+
+# Now enough of the skirmish - let's get real
+#--- Begin main -------------------------------------------------------------
+
+# First we test if the Topdesk Server is reachable
+# Paul Gomersbach, the nagios server is hosted outside our network and can't ping the topdesk host
+#my $IS_DEAD=ping($TD_SERVER);
+my $IS_DEAD="live";
+
+# Paul Gomersbach, we use passive checks as a result a state of 'UNKNOWN' can be the state between before a error is generated. Bailout if the state is 'UNKNOWN'.
+if ($NAG_STATE eq 'UNKNOWN' || $NAG_STATE eq 'UNREACHABLE')
+   {
+   exit 0;
+   }
+
+
+# OK or UP means that we have a recovery. Therefore we have to get the 
+# previously saved incident ID together with the timestamp of saving.
+
+if ($NAG_STATE eq 'OK' || $NAG_STATE eq 'UP' )
+   {
+
+   # If the Topdesk server is dead we have to exit
+   
+   if ( $IS_DEAD eq "Dead" )
+      {
+      exit 0;
+      }
+
+   # Well lets do the recovery work
+   
+   $TMP_FILE_CONTENT=get_incident_id_tmp_file();
+   
+   # If NOF (NO File) is returned we have no tempfile. There we have no
+   # timestamp and no incident ID. Opposite to politicians we can do nothing
+   # if we have no information
+   
+   if ( $TMP_FILE_CONTENT eq "NOF" )
+      {
+      exit 0;
+      }
+
+   # Always complete or close the incident
+
+   if ( $READY )
+      {
+
+      # The y in modify_incident("y") means close or complete
+      
+      modify_incident("y");
+      exit 0;
+      }
+      
+   # Well now we at the point where we have a maximum age of an incident
+   # where we have a stored file with the incicent time and the incident ID
+   # and where we are sure that we won't close the incident anyway.
+   
+   # Now we get back timestamp and incident ID from the stored data
+   
+   $TIME_DIFF=$TMP_FILE_CONTENT;
+   $TIME_DIFF =~ s/\s.*$//;
+
+   $TD_INCIDENT_ID=$TMP_FILE_CONTENT;
+   $TD_INCIDENT_ID =~ s/^[0-9]*\s//;
+   
+   # Nesseary due to the fact that $TD_INCIDENT_ID is the last element of a line from a file 
+   # and therefore it contains a linefeed
+   
+   chomp($TD_INCIDENT_ID);
+   
+   $TIME_DIFF = $TIMESTAMP - $TIME_DIFF;
+
+   # No maximum age set therefor we only add a comment within the incident
+   
+
+   if ( !$MAX_AGE )
+      {
+      modify_incident("n");
+      exit 0;
+      }
+      
+   # So now if MAX_AGE handled over via commandline is less or equal $TIME_DIFF
+   # we can close or complete the ticket
+   # Otherwise we will only add a comment
+
+   if ( $MAX_AGE <= $TIME_DIFF )
+      {
+      modify_incident("n");
+      }
+   else
+      {
+      modify_incident("y");
+      }
+   exit 0;
+   }
+else
+   {
+      
+   # If the Topdesk server is dead we have to set a comment and perform a loop
+   # If the loop fails we have to exit
+
+   if ( $IS_DEAD eq "Dead" )
+      {
+	print "server $TD_SERVER is dead";
+      set_comment();
+
+      if ( $TD_WAIT )
+         {
+
+         my $RETRY_COUNTER;
+         my $RETRY_COUNTER_MAX = $TD_WAIT / $TD_WAIT_RETRY;
+         
+         for ($RETRY_COUNTER = 1; $RETRY_COUNTER <= $RETRY_COUNTER_MAX ; $RETRY_COUNTER++)
+             {
+             sleep $TD_WAIT_RETRY;
+
+             $IS_DEAD=ping($TD_SERVER);
+
+             if ( $IS_DEAD eq "Alive" )
+                {
+                last;
+                }
+             }
+         }
+
+      if ( $IS_DEAD eq "Dead" )
+         {
+         
+         # If it is still dead we have to send an email for to the given
+         # contact and die.
+         
+         shit_happens();
+         exit 0;
+         }
+      }
+
+   # If Topdesk is greater than version 4.1 we have to use the selfservice interface and we need
+   # cookies (I prefer hazelnut)
+   
+   if ( $TD_VERSION >= 4.2 )
+      {
+      $UserAgent->agent('Mozilla/5.0');
+      $Cookie_Jar = HTTP::Cookies->new(file => "/var/cache/lwp_cookies.dat",autosave => 1,);
+      $UserAgent->cookie_jar($Cookie_Jar);
+      }
+
+   # Well now we will generate work for someone at the end of the food chain
+
+   $TD_RESULT=create_incident();
+
+   $TD_INCIDENT_ID=get_incident_id($TD_RESULT);
+
+   if ( $TD_INCIDENT_ID eq "ERROR")
+      {
+      set_comment();
+      shit_happens();
+      }
+   else
+      {
+      store_incident_id();
+
+      # Well now we will generate more work for someone at the end of the food chain
+
+      complete_create_incident();
+      set_acknowledge();
+      }
+   exit;
+   }
+
+#--- End main ---------------------------------------------------------------
+
+#--- Begin subroutines ------------------------------------------------------
+
+sub create_incident
+    {
+    
+    my $RESULT="";
+
+    if (!$TD_SERVER)
+       {
+       die "Error: No hostname given.\n";
+       }
+		
+    if ( $TD_INTERFACE eq "secure")
+       {
+       $URL = "$TD_URL/tas/secure/incident?action=new";
+       }
+
+    if ( $TD_INTERFACE eq "public")
+       {
+       $URL = "$TD_URL/tas/public/incidentpublic?action=new";
+       }
+	
+    if ($TD_STATUS)
+       {
+       $URL = "$URL&status=$TD_STATUS";
+       }
+    else
+       {
+       die "Error: No STATUS-information given.\n";
+       }
+	
+    if ($TD_USERNAME && $TD_PASSWORD)
+       {
+       $URL = "$URL&j_username=$TD_USERNAME&j_password=$TD_PASSWORD";
+       }
+    else
+       {
+       die "Error: No authentication parameters given.\n";
+       }
+		
+    if ($TD_CATEGORY)
+       {
+       $URL = "$URL&replacefield1=incident_domeinid&searchfield1=naam&searchvalue1=$TD_CATEGORY";
+       } 
+    else
+       {
+       die "Error: No category specified!\n";
+       }
+	
+    if ($TD_SUBCATEGORY)
+       {
+       $URL = "$URL&replacefield2=incident_specid&searchfield2=naam&searchvalue2=$TD_SUBCATEGORY";
+       }
+    else
+       {
+       die "Error: No subcategory specified!\n";
+       }
+	
+    if ($TD_MESSAGE)
+       {
+       $URL = "$URL&field3=verzoek&value3=$TD_MESSAGE";
+       }
+    else
+       {
+       die "Error: No text given!\n";
+       }
+
+    $URL = "$URL&save=true&validate=false";
+    # Now let's get that fu...ing page
+
+    # If Topdesk is greater than version 4.1 we have to use the selfservice interface and we need
+    # cookies and the userAgent
+   
+    if ( $TD_VERSION <= 4.1 )
+       {
+       $RESULT = LWP::Simple::get $URL;
+       }
+
+    if ( $TD_VERSION >= 4.2 )
+       {
+       $RESULT = $UserAgent->get("$URL");
+
+       if ($RESULT->is_success)
+          {
+          $RESULT = $RESULT->decoded_content;  # or whatever
+          }
+       else
+          {
+          $RESULT = $RESULT->status_line;
+          }
+       }
+       return $RESULT;
+    }
+
+
+sub complete_create_incident
+    {
+
+    my $RESULT="";
+	
+    if (!$TD_SERVER)
+       {
+       die "Error: No hostname given.\n";
+       }
+		
+    $URL = "$TD_URL/tas/secure/incident?action=edit";
+
+    if ($TD_USERNAME && $TD_PASSWORD)
+       {
+       $URL = "$URL&j_username=$TD_USERNAME&j_password=$TD_PASSWORD";
+       }
+    else
+       {
+       die "Error: No authentication parameters given.\n";
+       }
+		
+    if ($TD_INCIDENT_ID)
+       {
+       $URL = $URL."&lookup=naam&lookupValue=$TD_INCIDENT_ID";
+       }
+    else
+       {
+       die "Error: No IncidentID given.\n";
+       }
+
+    if ($TD_USER)
+       {
+       $URL = "$URL&replacefield0=persoonid&searchfield0=ref_dynanaam&searchvalue0=$TD_USER";
+       }
+    else
+       {
+       die "Error: Not enough user information provided.\n";
+       }
+	
+    if ($TD_SEVERITY)
+       {
+       $URL = "$URL&replacefield3=doorlooptijdid&searchfield3=naam&searchvalue3=$TD_SEVERITY";
+       }
+	
+    if ($TD_NOTICE)
+       {
+       $URL = "$URL&field5=aantekeningen&value5=$TD_NOTICE";
+       }
+	
+    if ($TD_OBJECT)
+       {
+       $URL = "$URL&replacefield6=configuratieobjectid&searchfield6=ref_naam&searchvalue6=$TD_OBJECT";
+       }
+    else
+       {
+       die "Error: No object parameters given.\n";
+       }
+
+    if ($TD_INPUT)
+       {
+       $URL = "$URL&replacefield7=soortbinnenkomstid&searchfield7=naam&searchvalue7=$TD_INPUT";
+       }
+    else
+       {
+       die "Error: No input parameters given.\n";
+       }
+
+    if ($TD_BR_DESC)
+       {
+       $URL = "$URL&field8=korteomschrijving&value8=$TD_BR_DESC";
+       }
+
+    if ($TD_INPUT_TYPE)
+       {
+       $URL = "$URL&replacefield9=soortmeldingid&searchfield9=naam&searchvalue9=$TD_INPUT_TYPE";
+       }
+
+    if ( $TD_VERSION < 4.2 )
+       {
+       if ($TD_OPERATOR)
+          {
+          # Modify the operator
+          $URL = "$URL&replacefield10=actiedoorid&searchfield10=ref_dynanaam&searchvalue10=$TD_OPERATOR";
+          }
+       }
+    if ( $TD_VERSION >= 4.2 )
+       {
+       if ($TD_OPERATOR)
+          {
+          # Modify the operator group
+          $URL = "$URL&replacefield10=operatorid&searchfield10=ref_dynanaam&searchvalue10=$TD_OPERATOR";
+          }
+       }
+
+    if ($FREE_LOGIC)
+       {
+       $URL = "$URL&field11=vrijelogisch$FREE_LOGIC&value11=true";
+       }
+	# Paul Gomersbach Rely special
+       $URL = "$URL&replacefield11=impactid&searchfield11=naam&searchvalue11=Bepalen";
+       $URL = "$URL&replacefield12=urgencyid&searchfield12=naam&searchvalue12=Normaal";
+       $URL = "$URL&save=true&validate=false";
+
+       # Now do the rest of the bullshit
+       $RESULT = LWP::Simple::get $URL;
+    }
+
+
+sub modify_incident
+    {
+
+    my $TO_BE_CLOSED=$_[0];
+    
+    my $RESULT="";
+	
+    if (!$TD_SERVER)
+       {
+       die "Error: No hostname given.\n";
+       }
+		
+    $URL = "$TD_URL/tas/secure/incident?action=edit";
+
+    if ($TD_USERNAME && $TD_PASSWORD)
+       {
+       $URL = "$URL&j_username=$TD_USERNAME&j_password=$TD_PASSWORD";
+       }
+    else
+       {
+       die "Error: No authentication parameters given.\n";
+       }
+		
+    if (!$NAG_SERVICE)
+       {
+       $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST - has recovered. Status $NAG_STATE. - Message from Nagios: $NAG_MESSAGE";
+       }
+    else
+       {
+       $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST Service $NAG_SERVICE - has recovered. Status: $NAG_STATE. - Message from Nagios: $NAG_MESSAGE";
+       }
+
+    if ($TD_INCIDENT_ID)
+       {
+       $URL = $URL."&lookup=naam&lookupValue=$TD_INCIDENT_ID&field0=actie&value0=$TD_MESSAGE&append0=true";
+       }
+    else
+       {
+       die "Error: No IncidentID given.\n";
+       }
+
+    # If the function is called with y a close or comlete will be done
+
+    if ($TO_BE_CLOSED eq "y")
+       {
+       if ($TD_RECOVER)
+          {
+          if ($TD_RECOVER eq "COMPLETE" )
+             {
+             $URL = "$URL&field1=gereed&value1=1";
+             }
+          else
+             {
+             if ($TD_RECOVER eq "CLOSE" )
+                {
+                $URL = "$URL&field1=gereed&value1=1";
+                $URL = "$URL&field2=afgemeld&value2=1";
+                }
+             else
+                {
+                die "Error: Wrong condition for completing or closing. Mission impossible.\n";
+                }
+             }
+          }
+       }
+
+    $URL = "$URL&save=true&validate=false";
+
+    # Now let's get that fu...ing page
+
+    $RESULT = LWP::Simple::get $URL;
+
+    return $RESULT;
+       
+    }
+
+
+# Here we filter the incident id out of the received document
+# In case there is no incident id within the document ERROR is returned
+
+sub get_incident_id
+    {
+    my $INCIDENT_ID=$_[0];
+
+    if (!$INCIDENT_ID)
+       {
+       $INCIDENT_ID="ERROR";
+       }
+    else
+       {
+       if ($INCIDENT_ID =~ m/^.*<title>/isog)
+          {
+          # Get the content of the title tag. The last value is the incident ID
+          $INCIDENT_ID =~ s/<\/title>.*$//isog;
+          $INCIDENT_ID =~ s/^.*<title>//isog;
+
+          # Now let's check for a valid ticket id. If $TD_INCIDENT_ID contains
+          # the only string TOPdesk we have the login page and this is an error.
+   
+          if ( $INCIDENT_ID eq "TOPdesk")
+             {
+             $INCIDENT_ID="ERROR";
+             }
+          else
+             {
+	     # Paul Gomersbach, for td version 5 get last two words as $INCIDENT_ID
+             #  $INCIDENT_ID =~ s/^.*?(\w+)[.!?]?\s*$/$1/s;
+		$INCIDENT_ID =~ s/^.*?(\w+\s\w+)\s*$/$1/s;
+             }
+          }
+       else
+          {
+          $HTTP_RET_CODE=$INCIDENT_ID;
+          $INCIDENT_ID="ERROR";
+          }
+       
+       }
+    return $INCIDENT_ID;
+    }
+
+
+# Here we acknowledge the problem in Nagios in case there was no error
+
+sub set_acknowledge
+    {
+
+    my $NAG_ACK_MSG="";
+    
+    open(NAG_CMD, ">> $NAG_PIPE");
+    
+    if (!$NAG_SERVICE)
+       {
+
+       $NAG_ACK_MSG="[$TIMESTAMP] ACKNOWLEDGE_HOST_PROBLEM;$NAG_HOST;1;1;1;$NAG_CONTACT;";
+       $NAG_ACK_MSG=$NAG_ACK_MSG."An incident in TOPdesk was opened with id: ";
+	# Paul Gomersbach, aangepast voor nagios XI
+       $NAG_ACK_MSG=$NAG_ACK_MSG."$TD_INCIDENT_ID\n";
+    #   $NAG_ACK_MSG=$NAG_ACK_MSG."<A HREF=\'$TD_URL/tas/secure/incident?action=show&lookup=naam&lookupValue=$TD_INCIDENT_ID\' target=\"_blank\">$TD_INCIDENT_ID</A>\n";
+          
+       print NAG_CMD "$NAG_ACK_MSG";
+
+       }
+    else
+       {
+
+       $NAG_ACK_MSG="[$TIMESTAMP] ACKNOWLEDGE_SVC_PROBLEM;$NAG_HOST;$NAG_SERVICE;1;1;1;$NAG_CONTACT;";
+       $NAG_ACK_MSG=$NAG_ACK_MSG."An incident in TOPdesk was opened with id: ";
+        # Paul Gomersbach, aangepast voor nagios XI
+       $NAG_ACK_MSG=$NAG_ACK_MSG."$TD_INCIDENT_ID\n";
+    #  $NAG_ACK_MSG=$NAG_ACK_MSG."<A HREF=\'$TD_URL/tas/secure/incident?action=show&lookup=naam&lookupValue=$TD_INCIDENT_ID\' target=\"_blank\">$TD_INCIDENT_ID</A>\n";
+       
+       print NAG_CMD "$NAG_ACK_MSG";
+
+       }
+
+    close(NAG_CMD);
+    }
+
+
+# Here we add only a comment or the problem in Nagios in case we have trouble opening an incident in topdesk
+
+sub set_comment
+    {
+
+    my $NAG_COMMENT_MSG="";
+    
+    open(NAG_CMD, ">> $NAG_PIPE");
+    
+    if (!$NAG_SERVICE)
+       {
+       if ($HTTP_RET_CODE)
+          {
+          $NAG_COMMENT_MSG="[$TIMESTAMP] ADD_HOST_COMMENT;$NAG_HOST;1;$NAG_CONTACT;";
+          $NAG_COMMENT_MSG=$NAG_COMMENT_MSG."An incident in TOPdesk could not be opened. HTTP status code: $HTTP_RET_CODE";
+          print NAG_CMD "$NAG_COMMENT_MSG";
+          }
+       else
+          {
+          $NAG_COMMENT_MSG="[$TIMESTAMP] ADD_HOST_COMMENT;$NAG_HOST;1;$NAG_CONTACT;";
+          $NAG_COMMENT_MSG=$NAG_COMMENT_MSG."An incident in TOPdesk could not be opened. Maybe authentication wrong/disabled, server not running or protocol/port wrong.";
+          print NAG_CMD "$NAG_COMMENT_MSG";
+          }
+       }
+    else
+       {
+       if ($HTTP_RET_CODE)
+          {
+          $NAG_COMMENT_MSG="[$TIMESTAMP] ADD_SVC_COMMENT;$NAG_HOST;$NAG_SERVICE;1;$NAG_CONTACT;";
+          $NAG_COMMENT_MSG=$NAG_COMMENT_MSG."An incident in TOPdesk could not be opened.  HTTP status code: $HTTP_RET_CODE";
+          print NAG_CMD "$NAG_COMMENT_MSG";
+          }
+       else
+          {
+          $NAG_COMMENT_MSG="[$TIMESTAMP] ADD_SVC_COMMENT;$NAG_HOST;$NAG_SERVICE;1;$NAG_CONTACT;";
+          $NAG_COMMENT_MSG=$NAG_COMMENT_MSG."An incident in TOPdesk could not be opened. Maybe authentication wrong/disabled, server not running or protocol/port wrong.";
+          print NAG_CMD "$NAG_COMMENT_MSG";
+          }
+       }
+
+    close(NAG_CMD);
+    }
+
+
+# Here we store a temporary file containing the UNID
+
+sub store_incident_id
+    {
+    my $STORE_TMPFILE=create_tmpfile_name();
+   
+    open(TMP_INCIDENTID, "> $STORE_TMPFILE");
+    
+    print TMP_INCIDENTID "$TIMESTAMP $TD_INCIDENT_ID\n";
+
+    close(TMP_INCIDENTID);
+    }
+
+sub get_incident_id_tmp_file
+    {
+    my $GET_TMPFILE=create_tmpfile_name();
+    my $CONTENT;
+   
+    if (-e $GET_TMPFILE)
+       {
+       open(TMP_INCIDENTID, "< $GET_TMPFILE");
+
+       while (<TMP_INCIDENTID>)
+             {
+             $CONTENT="$_";
+             }
+
+       close(TMP_INCIDENTID);
+       unlink ($GET_TMPFILE);
+       }
+    else
+       {
+       $CONTENT="NOF";
+       }
+    return $CONTENT;
+    }
+
+
+sub create_tmpfile_name
+    {
+    my $TMPFILE_SERVICE="";
+    my $TMPFILE_NAME="";
+    
+    # We construct the filename using TD_ as a prefix to make it easier to find the file in the temp directory.
+    
+    $TMPFILE_NAME = $TMP_DIR."/TD_".$NAG_HOST;
+
+    # If it is a a service problem we filter every whitspace characters out of the service description
+    # In case of a host problem we have nothing to do
+    
+    if ($NAG_SERVICE)
+       {
+       $TMPFILE_SERVICE=$NAG_SERVICE;
+       $TMPFILE_SERVICE =~ s/\s//isog;
+
+       $TMPFILE_NAME = $TMPFILE_NAME."_".$TMPFILE_SERVICE;
+       }
+    
+    return $TMPFILE_NAME;
+    
+    }
+
+
+sub ping
+    {
+    my $PING = Net::Ping->new("$PING_PROT",20,15);
+    
+    if ( $PING->ping($_[0],20))
+       {
+       $PING="Alive";
+       }
+    else
+       {
+       $PING="Dead";
+       }
+    
+    return $PING;
+    
+    }
+
+
+sub shit_happens
+    {
+
+    if ($NAG_CONTACTEMAIL)
+       {
+       
+       my $Type_of_call;
+       
+       open(MAIL, "|$MAILER");
+       
+       # Mail Header
+       print MAIL "To: $NAG_CONTACTEMAIL\n";
+       print MAIL "Subject: Alert from Nagios! $TD_URL not accessible. Cannot add incident!\n\n";
+
+       $NAG_CONTACTEMAIL =~ s/ /,/isog;
+       
+       if ( $TD_STATUS == 1 )
+          {
+          $Type_of_call = "1st";
+          }
+
+       if ( $TD_STATUS == 2 )
+          {
+          $Type_of_call = "2nd";
+          }
+ 
+       # Mail Body
+       print MAIL "Alert from Nagios! $TD_URL not accessible. Cannot add incident!\n";
+       print MAIL "\n";
+       print MAIL "Please add incident by hand when Topdesk is back to work:\n\n";
+       print MAIL "#########################################################\n";
+       print MAIL "# Instructions for registration in TOPdesk:\n";
+       print MAIL "# =========================================\n";
+       print MAIL "#\n";
+       print MAIL "# Category....: $TD_CATEGORY\n";
+       print MAIL "# Subcategory.: $TD_SUBCATEGORY\n";
+       print MAIL "# Type of call: $Type_of_call line call\n";
+       print MAIL "# Duration....: $TD_SEVERITY\n";
+       print MAIL "#########################################################\n\n";
+       print MAIL "Error message from Nagios:\n";
+       print MAIL "$TD_MESSAGE\n";
+ 
+       if ($HTTP_RET_CODE)
+          {
+          print MAIL "\nIt seems to be a problem with the Topdesk application:\n";
+          print MAIL "HTTP status code: $HTTP_RET_CODE\n";
+          }
+    
+       close(MAIL);
+       }
+    }
+
+
+sub print_usage
+    {
+    print "\nUsage: $PROGNAME -U|--url <TOPdesk base URL> ";
+    print "-H|--host <host> ";
+    print "-S|--service <service> ";
+    print "-N|--notificationtype <Nagios notificationtype> ";
+    print "[-n|--notice <Notes>] ";
+    print "[-b|--briefdescription <Brief Description>] ";
+    print "-M|--message <message> ";
+    print "-C|--category <category> ";
+    print "-c|--subcategory <subcategory> ";
+    print "[-k|--caller <Caller>] ";
+    print "[-e|--entry <Entry>] ";
+    print "-s|--state <Nagios state> ";
+    print "[-o|--typeofcall <Incident or Security...>] ";
+    print "[-l|--line <1=1stline call, 2=2ndline call>] ";
+    print "[--linemap=<\"s1=l1 s2=l1 s3=l2\"> ";
+    print "[--sevmapfirst]] ";
+    print "[-V|--tdversion <Topdesk version>] ";
+    print "[-O|--operator <operator group>] ";
+    print "[-t|--severity <\"CRITICAL=2 WARNING=3 ...\">] ";
+    print "[-T|--time <Time in Minutes>] ";
+    print "[-W|--wait <wait for retry> ";
+    print "[-w|--retry <retry interval> ";
+    print "[-m|--mail <email-address>]]] ";
+    print "[-r|--ready] ";
+    print "[--freelogic=<1,2,3 or 4>]\n\n";
+    print "or\n";
+    print "\nUsage: $PROGNAME -h for help.\n\n";
+    }
+
+
+sub print_help
+    {
+    print "Copyright (c) 2009,2010,2011,2012 Martin Fuerstenau\n";
+    print_usage();
+    print "   -U, --url                                     TOPdesk base URL like\n";
+    print "                                                 https://mycalldesk.mydomain.com (mandatory)\n";
+    print "   -H, --host                                    Host causing the incident from Nagios (mandatory)\n";
+    print "   -S, --service                                 Service causing the incident from Nagios (mandatory if a service)\n";
+    print "   -N, --notificationtype                        Notificationtype from from Nagios (mandatory)\n";
+    print "   -n, --notifice                                It fills out the notes field on the notes card (optional)\n";
+    print "   -b, --briefdescription                        It fills out the brief description field (optional)\n";
+    print "   -M, --message                                 Message from Nagios (mandatory)\n";
+    print "   -C, --category                                Main category in TOPdesk (mandatory)\n";
+    print "   -c, --subcategory                             Subcategory in TOPdesk (mandatory)\n";
+    print "   -k, --caller                                  Pass the caller to TOPdesk\n";
+    print "                                                 If not passed the default caller from\n";
+    print "                                                 the script will be used. (optional)\n";
+    print "   -e, --entry                                   Entry field in TOPdesk (optional)\n";
+    print "   -s, --state=state                             State from Nagios (mandatory)\n";
+    print "                                                 UP = Host up - used for closing\n";
+    print "                                                 an incident\n";
+    print "                                                 DOWN = Host down\n";
+    print "                                                 Normally mapped to severity 1\n";
+    print "                                                 UNREACHABLE = Host unreachable\n";
+    print "                                                 Normally mapped to severity 3\n";
+    print "                                                 OK = Service ok - used for closing\n";
+    print "                                                 an incident\n";
+    print "                                                 WARNING = Service Warning\n";
+    print "                                                 Normally mapped to severity 2\n";
+    print "                                                 CRITICAL = Service critical\n";
+    print "                                                 Normally mapped to severity 1\n";
+    print "                                                 UNKNOWN = Service unknown\n";
+    print "                                                 Normally mapped to severity 3\n";
+    print "   -o, --typeofcall                              Type of call (Incident,Compliance,Security or whatever\n";
+    print "                                                 you see here in your Topdesk based on an incident. If\n";
+    print "                                                 the default will take place. (optional).\n";
+    print "   -l, --line                                    1 indicates a first line incident, 2 indicates\n";
+    print "                                                 a second line incident. If the default will\n";
+    print "                                                 take place. (optional).\n";
+    print "       --linemap=\"s1=l1 s2=l1 s3=l2\"             Map severity to line (1st line, 2nd line etc.).(optional)\n";
+    print "                                                 Severity mapping (see below) is interpreted first!!\n";
+    print "       --sevmapfirst                             Priority for linemapping . This is used in conjunction with\n";
+    print "                                                 severity mapping and line mapping.If (for example) a CRITICAL\n";
+    print "                                                 is mapped to sev2 instead of a sev1 a line mapping like \"s1=l1 s2=l1\"";
+    print "                                                 is nonsense because you will never have a sev1. So under normal\n";
+    print "                                                 conditions the the line mapping must be done before the severity\n";
+    print "                                                 is mapped. (Optional)\n";
+    print "   -V, --tdversion                               THIS IS A MUST from Topdesk 4.2 on. If it is set to 4.2\n";
+    print "                                                 it uses Self Service Desk interface instead of the Operator login.\n";
+    print "                                                 Absolutely necessary for version 4.2 because the Mango based\n";
+    print "                                                 interface will not work with scripts.\n";
+    print "   -O, --operator=operator or group              Sets the operator or operator group in the operator\n";
+    print "                                                 If not set default from Topdesk will take place (optional)\n\n";
+    print "                                                 From version 4.2 on:\n";
+    print "                                                 - If the name entered is an operator group the same entry is\n";
+    print "                                                   displayed in the fields \"Operator\" and \"Operator group\".\n";
+    print "                                                 - If the name entered is an operator name the corresponding\n";
+    print "                                                   group entry is displayed in the field and \"Operator group\".\n";
+    print "\n";
+    print "   -t, --severity=\"CRITICAL=2 WARNING=3 ...\"     Severity for Topdesk (1,2,3 or 4)(optional)\n";
+    print "                                                 With this switch you can overrite\n";
+    print "                                                 the default mapping. The alternative mapping\n";
+    print "                                                 should be entered as a string in the form\n";
+    print "                                                 \"CRITICAL=1 WARNING=3....\" etc.\n";
+    print "                                                 Lowercase letters will be converted to uppercase ones\n";
+    print "                                                 You have only to add mappings, which should be \n";
+    print "                                                 different from standard mapping\n";
+    print "                                                 Mapping should be handled over as a string so don't\n";
+    print "                                                 omit the quotes\n";
+    print "   -T, --time=time in minutes                    Time in minutes for automatically complete\n";
+    print "                                                 or close a ticket. (optional)\n";
+    print "   -W, --wait=time in minutes                    Time in minutes for waiting if the Topdesk\n";
+    print "                                                 server is not responding. -m must be set also.(optional)\n";
+    print "   -w, --retry=time in seconds                   Time in seconds for retry interval. Must be used\n";
+    print "                                                 in conjunction with -W. (optional)\n";
+    print "       --freelogic=1,2,3 or 4                    There a 4 boolean fields vrijelogisch1 - vrijelogisch4 in Topdesk\n";
+    print "                                                 which can be used for individual purpose.Setting one of this\n";
+    print "                                                 can be done using this values. Only one value can be used.(optional)\n";
+    print "   -m, --mail='email address'                    Email address for notification if the Topdesk server is not \n";
+    print "                                                 responding. Must be used with -W and -w (optional)\n";
+    print "                                                 If a ticket is not older than given timeframe it will be\n";
+    print "                                                 closed or completed. The decision to complete or close a ticket\n";
+    print "                                                 is based on the policy used on the given server and therfore it\n";
+    print "                                                 depends on the server name.\n";
+    print "       --ping='protocol'                         Protocol to ping the Topdesk server. icmp is default but need root\n";
+    print "                                                 privileges. Allowed protocols are icmp,tcp and udp.\n";
+    print "\n";
+    print "                                                 If a Ticket should never be closed/copleted you have 3 Methods:\n";
+    print "\n";
+    print "                                                 - handle over here a 0 or be sure\n";
+    print "                                                 - do not to define a line for the server in \%TD_RECOVER\n";
+    print "                                                   in the sourcecode.\n";
+    print "                                                 - omit the switch.\n";
+    print "\n";
+    print "   -r, --ready                                   Always complete or close an incident (optional)\n";
+    print "\n";
+    print "   -h, --help                                    Short help message (mandatory)\n";
+    print "\n";
+    }
+
+#--- End subroutines --------------------------------------------------------
+

@@ -1,0 +1,27 @@
+{
+  "license": "Apache License, Version 2.0",
+  "dependencies": [
+
+  ],
+  "source": "UNKNOWN",
+  "version": "0.0.1",
+  "description": "UNKNOWN",
+  "summary": "Configures sshd and sudo to use RADIUS for authentication.",
+  "types": [
+
+  ],
+  "project_page": "https://github.com/rji/puppet-pam_radius_auth",
+  "author": "rji",
+  "checksums": {
+    "files/pam_sshd_el": "8900a3b6f69abeaf86e40a1d72ce6831",
+    "files/pam_sshd_deb": "6cba547c5a8f33961a88a6585c5e6398",
+    "manifests/init.pp": "fbd922ad5a25e14c10ba00baa97f662d",
+    "files/pam_sudo_el": "429491723f42233a2bebec6ed288961a",
+    "files/pam_sudo_deb": "9d3fc4e23e541d973003d68c6f7fa0ed",
+    "templates/pam_radius.conf.erb": "695b9fffb09d1e3f445c17c749d9a1a5",
+    "README": "cc3c56b794b4faef4c07b03941045378",
+    "LICENSE": "2ee41112a44fe7014dce33e26468ba93",
+    "Modulefile": "9b840c84bc47ce95614456230a9459dd"
+  },
+  "name": "rji-pam_radius_auth"
+}

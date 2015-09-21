@@ -1,0 +1,8 @@
+name    'puppet-permute'
+version '0.0.1'
+source 'git://github.com/xaque208/puppet-permute.git'
+author 'zleslie'
+license 'Apache License Version 2.0'
+summary 'Permute the combinations of paramters'
+description 'Create a set of resources with all the permutations of paramaters'
+project_page 'https://github.com/xaque208/puppet-permute'

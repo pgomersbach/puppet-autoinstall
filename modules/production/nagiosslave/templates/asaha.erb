@@ -1,0 +1,5 @@
+<%= server_to_mon %>,Current Load,check_cisco_ips.pl -C public -2 -H <%= server_to_mon %> -w 80,75,70 -c 85,80,75 -T cpu -f
+<%= server_to_mon %>,Memory Usage,check_cisco_ips.pl -C public -2 -H <%= server_to_mon %> -w 80 -c 90 -T mem -f
+<%= server_to_mon %>,Outside load,check_snmp_int.pl -H <%= server_to_mon %> -C public -2 -n outside -w 0,0 -c 0,0 -f
+<%= server_to_mon %>,Failover Status,check_cisco_firewall.sh -H <%= server_to_mon %> -V 2c -C public -M failover
+<%= server_to_mon %>,Parent slave,check_myslave.sh

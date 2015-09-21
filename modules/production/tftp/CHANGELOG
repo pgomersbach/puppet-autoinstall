@@ -1,0 +1,15 @@
+0.2.0 2012-07-27 Puppet Labs <info@puppetlabs.com>
+
+* Add support for RHEL/CentOS
+* Use xinetd rather than inetd
+* Enable xinetd by default
+
+0.1.1 2012-06-25 Puppet Labs <info@puppetlabs.com>
+
+* Add recurse support for tftp::file.
+* Add source defaults for tftp::file.
+* Add travis ci and puppet spec_helper support.
+
+0.1.0 2012-05-1 Puppet Labs <info@puppetlabs.com>
+
+* Initial release of module.

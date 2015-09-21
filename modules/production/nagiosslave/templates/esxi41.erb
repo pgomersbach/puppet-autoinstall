@@ -1,0 +1,8 @@
+<%= server_to_mon %>,Vmnic0,check_ifoperstatus -C public -H <%= server_to_mon %> -k 1
+<%= server_to_mon %>,Vmnic2,check_ifoperstatus -C public -H <%= server_to_mon %> -k 3
+<%= server_to_mon %>,Vmnic4,check_ifoperstatus -C public -H <%= server_to_mon %> -k 5
+<%= server_to_mon %>,Vmnic5,check_ifoperstatus -C public -H <%= server_to_mon %> -k 6
+<%= server_to_mon %>,Memory Usage,check_vmware.pl --server <%= vcenter_server %> --config /etc/viconfig --report=memory --host <%= server_to_mon %> --warn 90
+<%= server_to_mon %>,Cpu Usage,check_vmware.pl --server <%= vcenter_server %> --config /etc/viconfig --report=cpu --host <%= server_to_mon %>
+<%= server_to_mon %>,Network Usage,check_vmware.pl --server <%= vcenter_server %> --config /etc/viconfig --report=net --host <%= server_to_mon %>
+<%= server_to_mon %>,Parent slave,check_myslave.sh
