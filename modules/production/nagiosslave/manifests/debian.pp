@@ -108,22 +108,25 @@ File <<| tag == "$domain.splunk.conf" |>>
   package { [ 'libwww-perl', 'libxml-simple-perl', 'libcrypt-ssleay-perl', 'libxml-parser-perl', 'liberror-perl', 'php-http', 'libstdc++6', 'build-essential' ]:
       ensure => 'present',
   }
-  package { 'rubygems':
-    ensure   => installed,
-  }
-  package { 'ruby-dev':
-    ensure   => installed,
-    require  => Package['rubygems'],
-  }
-  package { 'eventmachine':
-    ensure   => installed,
-    require  => Package['ruby-dev'],
-    provider => 'gem',
-  }
-  package { 'amqp-utils':
-    ensure   => installed,
-    require  => Package['eventmachine'],
-    provider => 'gem',
+
+  if $::operatingsystem == 'debian' {
+    package { 'rubygems':
+      ensure   => installed,
+    }
+    package { 'ruby-dev':
+      ensure   => installed,
+      require  => Package['rubygems'],
+    }
+    package { 'eventmachine':
+      ensure   => installed,
+      require  => Package['ruby-dev'],
+      provider => 'gem',
+    }
+    package { 'amqp-utils':
+      ensure   => installed,
+      require  => Package['eventmachine'],
+      provider => 'gem',
+    }
   }
 
 
