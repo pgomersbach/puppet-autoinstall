@@ -28,7 +28,6 @@
 <%= server_to_mon %>,Esx-p02 vmnic6,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.27
 <%= server_to_mon %>,Esx-p03 vmnic6,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.29
 <%= server_to_mon %>,Esx-p04 vmnic6,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.31
-<%= server_to_mon %>,Zfs data1,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.46
 <%= server_to_mon %>,Vellance public feed B,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.53
 <%= server_to_mon %>,Esxi-p02 iDRAC,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.57
 <%= server_to_mon %>,Esxi-p04 iDRAC,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.61
@@ -40,7 +39,6 @@
 <%= server_to_mon %>,Esx-p02 vmnic3,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.79
 <%= server_to_mon %>,Esx-p03 vmnic3,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.81
 <%= server_to_mon %>,Esx-p04 vmnic3,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.83
-<%= server_to_mon %>,Zfs data2,check_snmp -C public -H <%= server_to_mon %> -s 2 -w 1 --invert-search -o 1.3.6.1.2.1.2.2.1.8.98
 <%= server_to_mon %>,Esx-p01 etherchannel,check_snmp -C public -H <%= server_to_mon %> -o 1.3.6.1.2.1.2.2.1.8.626
 <%= server_to_mon %>,Esx-p02 etherchannel,check_snmp -C public -H <%= server_to_mon %> -o 1.3.6.1.2.1.2.2.1.8.627
 <%= server_to_mon %>,Esx-p03 etherchannel,check_snmp -C public -H <%= server_to_mon %> -o 1.3.6.1.2.1.2.2.1.8.628
