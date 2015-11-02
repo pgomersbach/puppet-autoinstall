@@ -40,20 +40,17 @@ define gen_mon_config {
     require => File['/etc/nagios-plugins/plugins.d'],
     notify  => Exec['update-nagiosslave.conf'],
   }
+
+#  @@nagios_host { $server_to_mon:
+#    ensure        => present,
+#    alias         => $server_to_mon,
+#    address       => $server_to_mon,
+#    check_command => 'check-host-alive',
+#    use           => 'generic-host',
+#    target        => "/etc/nagios3/resource.d/host_${::hostname}.cfg",
+#    tag           => $domain,
+#  }
 }
-
-define remote_file($remote_location=undef, $mode='0644'){
-  exec{ "retrieve_${title}":
-    command => "/usr/bin/wget -q ${remote_location} -O ${title}",
-    creates => $title,
-  }
-
-  file{$title:
-    mode    => $mode,
-    require => Exec["retrieve_${title}"],
-  }
-}
-
 
 # generate configuration for to_monitor - to_monitor20
 $servers_to_monitor = split($to_monitor, ':')
