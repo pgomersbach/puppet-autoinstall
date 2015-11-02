@@ -1,0 +1,15 @@
+[main]
+    logdir = /var/log/puppet
+    rundir = /var/run/puppet
+    ssldir = $vardir/ssl
+    factpath=$vardir/lib/facter
+    templatedir=$confdir/templates
+    pluginsync = true
+
+[agent]
+    server=puppet.rely.nl
+    classfile = $vardir/classes.txt
+    localconfig = $vardir/localconfig
+    report      = true
+    environment = <%= environment %>
+    runinterval = 1800

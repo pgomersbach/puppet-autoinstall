@@ -1,0 +1,64 @@
+# This file is managed by Puppet.
+#
+# PAM configuration for the Secure Shell service
+
+# Read environment variables from /etc/environment and
+# /etc/security/pam_env.conf.
+auth       required     pam_env.so # [1]
+# In Debian 4.0 (etch), locale-related environment variables were moved to
+# /etc/default/locale, so read that as well.
+auth       required     pam_env.so envfile=/etc/default/locale
+
+auth	optional	pam_script.so	radius
+auth	[success=ok user_unknown=1 default=1]	pam_radius_auth.so debug
+auth	[success=3 default=ignore]	pam_script.so
+auth	optional	pam_script.so	unix
+auth	[success=1 new_authtok_reqd=ok user_unknown=die default=ignore]	pam_unix.so nullok_secure debug try_first_pass
+
+# here's the fallback if no module succeeds
+auth	requisite			pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+auth	required			pam_permit.so
+
+# libpam-radius-auth, "auth required pam_radius_auth.so", "auth sufficient pam_script.so runas=root" works and makes users
+# auth required pam_radius_auth.so debug
+
+# Create user and homedirectory after libpam-radius-auth success
+# auth sufficient pam_script.so runas=root
+
+# Standard Un*x authentication.
+# @include common-auth
+
+
+# Disallow non-root logins when /etc/nologin exists.
+# account sufficient pam_script.so runas=root
+# account    required     pam_nologin.so
+
+# Uncomment and edit /etc/security/access.conf if you need to set complex
+# access limits that are hard to express in sshd_config.
+# account  required     pam_access.so
+
+
+# Standard Un*x authorization.
+# @include common-account
+
+# Standard Un*x session setup and teardown.
+session    required   pam_mkhomedir.so skel=/etc/skel/ umask=0022 silent
+# @include common-session
+
+# Print the message of the day upon successful login.
+# session    optional     pam_motd.so # [1]
+
+# Print the status of the user's mailbox upon successful login.
+# session    optional     pam_mail.so standard noenv # [1]
+
+# Set up user limits from /etc/security/limits.conf.
+# session    required     pam_limits.so
+
+# Set up SELinux capabilities (need modified pam)
+# session  required     pam_selinux.so multiple
+
+# Standard Un*x password updating.
+# @include common-password

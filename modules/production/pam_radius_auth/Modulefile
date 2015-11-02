@@ -1,0 +1,11 @@
+name    'rji-pam_radius_auth'
+version '0.0.1'
+source 'UNKNOWN'
+author 'rji'
+license 'Apache License, Version 2.0'
+summary 'Configures sshd and sudo to use RADIUS for authentication.'
+description 'UNKNOWN'
+project_page 'https://github.com/rji/puppet-pam_radius_auth'
+
+## Add dependencies, if any:
+# dependency 'username/name', '>= 1.2.0'

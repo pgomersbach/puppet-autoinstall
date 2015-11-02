@@ -1,0 +1,24 @@
+{
+  "name": "puppet-permute",
+  "version": "0.0.1",
+  "source": "git://github.com/xaque208/puppet-permute.git",
+  "author": "zleslie",
+  "license": "Apache License Version 2.0",
+  "summary": "Permute the combinations of paramters",
+  "description": "Create a set of resources with all the permutations of paramaters",
+  "project_page": "https://github.com/xaque208/puppet-permute",
+  "dependencies": [
+
+  ],
+  "types": [
+
+  ],
+  "checksums": {
+    "Modulefile": "37aaf9294c11e863ca97767e509279e3",
+    "README.md": "c1e99b2d5d5d5c51087df85cd3c4a711",
+    "lib/puppet/parser/functions/resource_permute.rb": "7c2612e3d15d05d6a76b876187cbcbef",
+    "manifests/init.pp": "99beefbb401c3bcae6ea77b9a71b1141",
+    "tests/notify.pp": "bd42ceb853f53d7fa2e64975228c1088",
+    "tests/pxe.pp": "51a5383413a70b9e5368cbfa9424a515"
+  }
+}

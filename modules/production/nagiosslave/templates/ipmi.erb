@@ -1,0 +1,4 @@
+<%= server_to_mon %>,Fan Status,check_ipmi_sensor -H ipmi-<%= server_to_mon %> -U nagios -P monitor -L user -T Fan
+<%= server_to_mon %>,Temperature,check_ipmi_sensor -H ipmi-<%= server_to_mon %> -U nagios -P monitor -L user -T Temperature
+<%= server_to_mon %>,Voltage,check_ipmi_sensor -H ipmi-<%= server_to_mon %> -U nagios -P monitor -L user -T Voltage
+<%= server_to_mon %>,Parent slave,check_myslave.sh

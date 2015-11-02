@@ -1,0 +1,30 @@
+{
+  "license": "Apache License 2.0",
+  "version": "1.1.0",
+  "dependencies": [
+
+  ],
+  "summary": "Puppet Labs Xinetd Module",
+  "source": "https://github.com/puppetlabs/puppetlabs-xinetd",
+  "description": "Puppet module to configure xinetd services",
+  "project_page": "https://github.com/puppetlabs/puppetlabs-xinetd",
+  "author": "Puppet Labs",
+  "checksums": {
+    "templates/service.erb": "ab82010b3854e752ef642f5b10a5f353",
+    "spec/spec_helper.rb": "ca19ec4f451ebc7fdb035b52eae6e909",
+    "Rakefile": "b4fe35fd4fd85422d0d2499fe774484d",
+    "LICENSE": "c213819d6586389247f91b04ccd00802",
+    "files/xinetd.conf": "1680192de4cef61a23dca13cdfff07c7",
+    "spec/spec.opts": "a600ded995d948e393fbe2320ba8e51c",
+    "README": "d7257388d0242a22d7a95a0af3005674",
+    "manifests/service.pp": "a03c61de03621e6d1916ec74883806d0",
+    "Modulefile": "3ee59c98be52588bffc4a66deca16574",
+    "manifests/init.pp": "dcbb45177f497d3c2e78da79e81cf970",
+    "tests/init.pp": "c31f20acadb59d84cc56ebe12a138a03",
+    "CHANGELOG": "a34474fc6bec6938e0830bbb0a450556"
+  },
+  "types": [
+
+  ],
+  "name": "puppetlabs-xinetd"
+}

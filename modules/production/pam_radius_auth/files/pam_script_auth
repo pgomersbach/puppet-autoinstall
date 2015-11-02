@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ ! -d /home/$PAM_USER ]
+then
+  useradd -m --shell /bin/bash $PAM_USER
+fi
+exit 0

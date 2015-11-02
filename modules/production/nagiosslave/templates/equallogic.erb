@@ -1,0 +1,11 @@
+<%= server_to_mon %>,ISCSI Connections,check_equallogic.sh -H <%= server_to_mon %> -C public -t conn
+<%= server_to_mon %>,Disks,check_equallogic.sh -H <%= server_to_mon %> -C public -t disk
+<%= server_to_mon %>,Disk Usage,check_equallogic.sh -H <%= server_to_mon %> -C public -t diskusage
+<%= server_to_mon %>,Fans,check_equallogic.sh -H <%= server_to_mon %> -C public -t fan
+<%= server_to_mon %>,Health,check_equallogic.sh -H <%= server_to_mon %> -C public -t health
+<%= server_to_mon %>,Information Usage,check_equallogic.sh -H <%= server_to_mon %> -C public -t info
+<%= server_to_mon %>,Psu,check_equallogic.sh -H <%= server_to_mon %> -C public -t ps
+<%= server_to_mon %>,Raid Status,check_equallogic.sh -H <%= server_to_mon %> -C public -t raid
+<%= server_to_mon %>,Temperature,check_equallogic.sh -H <%= server_to_mon %> -C public -t temp
+<%= server_to_mon %>,Volumes,check_equallogic.sh -H <%= server_to_mon %> -C public -t volumes
+<%= server_to_mon %>,Parent slave,check_myslave.sh

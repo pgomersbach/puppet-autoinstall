@@ -1,0 +1,38 @@
+{
+  "types": [
+
+  ],
+  "version": "0.2.0",
+  "project_page": "https://github.com/puppetlabs/puppetlabs-tftp",
+  "checksums": {
+    "spec/spec_helper.rb": "0db89c9a486df193c0e40095422e19dc",
+    "spec/puppetlabs_spec_helper.rb": "b8e2c657fb91ba7129e679d133169986",
+    "manifests/params.pp": "da87a69afa771701872d56a6cc8c4963",
+    "spec/puppetlabs_spec/files.rb": "5f7d2da815b3545f1e3347fac84a36c8",
+    "CHANGELOG": "b13ca38b29895d05e21974dfd1e4d79c",
+    "LICENSE": "b3f8a01d8699078d82e8c3c992307517",
+    "spec/classes/tftp_spec.rb": "049fe64362943ec40873ca49f3ef29e0",
+    "README.md": "af85366f9723d011bac99da45bfea586",
+    "Rakefile": "0254db5d3fc38c67a2c160d7296a24f8",
+    "spec/puppetlabs_spec/matchers.rb": "8e77dc7317de7fc2ff289fb716623b6c",
+    "spec/puppetlabs_spec/fixtures.rb": "795629c4bcad28bf3bb91ff6e5ce97b1",
+    "spec/defines/tftp_file_spec.rb": "5f52f9600ed8300e94da44fdf2a4d858",
+    "tests/init.pp": "d6d93d3ff8a806917f27c99b8433fb95",
+    "templates/tftpd-hpa.erb": "78808d309b535a4335ac8e569a9313ac",
+    "manifests/file.pp": "b7ccecb2650226fb07bb26cc6660f520",
+    "Modulefile": "7d8767650c5432074303b5ba8989b9bd",
+    "manifests/init.pp": "932d029239bb18730cf86902c057283f"
+  },
+  "dependencies": [
+    {
+      "version_requirement": ">= 1.1.0",
+      "name": "puppetlabs/xinetd"
+    }
+  ],
+  "summary": "Puppet Labs TFTP Module",
+  "source": "git://github.com/puppetlabs/puppetlabs-tftp",
+  "description": "Manage tftp service and files for Debian/Ubuntu.",
+  "author": "Puppet Labs",
+  "name": "puppetlabs-tftp",
+  "license": "Apache 2.0"
+}

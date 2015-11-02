@@ -1,0 +1,2 @@
+<%= server_to_mon %>,Current Load,check_snmp_load.pl -C public -H <%= server_to_mon %> -w 80,75,70 -c 85,80,75 -T cata -f
+<%= server_to_mon %>,Parent slave,check_myslave.sh

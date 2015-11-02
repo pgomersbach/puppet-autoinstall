@@ -1,0 +1,20 @@
+<?php
+
+$conf['title'] = 'Rely DokuWiki';
+$conf['lang'] = 'nl';
+$conf['useacl'] = 1;
+$conf['superuser'] = '@pgomersbach';
+$conf['template']    = 'arctic';
+
+<% if @ad_servers %>
+// configure your Active Directory data here
+$conf['authtype']       = 'ad';
+<% if domain.split(".")[2] %>
+$conf['auth']['ad']['account_suffix']     = '@<%= domain.split(".")[1..2].collect{|x| x}.join(".") %>';
+$conf['auth']['ad']['base_dn']            = 'dc=<%= domain.split(".")[1..2].collect{|x| x}.join(",dc=") %>';
+<% else %>
+$conf['auth']['ad']['account_suffix']     = '@<%= domain.split(".")[0..2].collect{|x| x}.join(".") %>';
+$conf['auth']['ad']['base_dn']            = 'dc=<%= domain.split(".")[0..2].collect{|x| x}.join(",dc=") %>';
+<% end %>
+$conf['auth']['ad']['domain_controllers'] = '<%= @ad_servers %>';
+<% end %>

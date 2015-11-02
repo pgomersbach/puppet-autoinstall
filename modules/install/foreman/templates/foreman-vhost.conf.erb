@@ -1,0 +1,31 @@
+<VirtualHost <%= ipaddress %>:80>
+  ServerName <%= fqdn %>
+  ServerAlias foreman
+  DocumentRoot <%= scope.lookupvar 'foreman::params::app_root' %>/public
+  PassengerAppRoot <%= scope.lookupvar 'foreman::params::app_root' %>
+
+  RailsAutoDetect On
+  AddDefaultCharset UTF-8
+
+</VirtualHost>
+
+<VirtualHost <%= ipaddress %>:443>
+  ServerName puppet.rely.nl
+  ServerAlias foreman
+
+  RailsAutoDetect On
+  DocumentRoot <%= scope.lookupvar 'foreman::params::app_root' %>/public
+  PassengerAppRoot <%= scope.lookupvar 'foreman::params::app_root' %>
+
+  # Use puppet certificates for SSL
+
+  SSLEngine On
+  SSLCertificateFile      /var/lib/puppet/ssl/certs/puppet.rely.nl.pem
+  SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/puppet.rely.nl.pem
+  SSLCertificateChainFile /var/lib/puppet/ssl/certs/ca.pem
+  SSLCACertificateFile    /var/lib/puppet/ssl/certs/ca.pem
+  SSLVerifyClient         optional
+  SSLOptions              +StdEnvVars
+  SSLVerifyDepth          3
+
+</VirtualHost>

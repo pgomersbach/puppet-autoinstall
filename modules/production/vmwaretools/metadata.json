@@ -1,0 +1,36 @@
+{
+  "name": "CraigWatson1987-vmwaretools",
+  "version": "0.2.1",
+  "source": "git://github.com/craigwatson/puppet-vmwaretools.git",
+  "author": "Craig Watson",
+  "license": "GNU General Public License v3",
+  "summary": "Manage installation of VMware Tools via the archive distributed with vSphere, either via Puppet or HTTP.",
+  "description": "Manages the installation of VMware Tools via the archive distributed with vSphere, either transferring the source via Puppet or HTTP with MD5.",
+  "project_page": "https://github.com/craigwatson/puppet-vmwaretools",
+  "dependencies": [
+
+  ],
+  "types": [
+
+  ],
+  "checksums": {
+    "CHANGELOG.md": "9410efaf44a8db29a55e0c7c37fcdc83",
+    "LICENSE": "d32239bcb673463ab874e80d47fae504",
+    "Modulefile": "674e83660db4c4a4a8d6602716d01ec1",
+    "README.md": "7d41915154ebae8f44e1e1991ecc5e64",
+    "Rakefile": "5f28f33c1a2dad20631d779556d69cc3",
+    "lib/facter/esx_version.rb": "b0f02b7b18c93ca321389a199e5d0803",
+    "lib/facter/vmwaretools_version.rb": "316e50d3a7564966446ef8ec459116f8",
+    "manifests/config.pp": "3d68d84f59b6464c251a0d6e4c0d50a8",
+    "manifests/config_tools.pp": "e60cc64b5f5b7923336f2c1cd90414e1",
+    "manifests/init.pp": "03891b71642c764bf89811be4b41ad5d",
+    "manifests/install/archive.pp": "a5f7f07ba06f3407dffa12dabf7061f6",
+    "manifests/install/exec.pp": "e9f1a4816d55d45ea027242fb40ad79b",
+    "manifests/install/package.pp": "a8ebf716d8801c392d12ca3f5ee819c8",
+    "manifests/install.pp": "74e69bef45e70657687e8ad328373c13",
+    "manifests/params.pp": "91a814e47ab36b233aee87b2b53676a1",
+    "manifests/timesync.pp": "8182b224feeea7f9e5643d6142142a61",
+    "runrake.sh": "458f89e077c3cbdf99789f180aef1e20",
+    "templates/download.sh.erb": "e60f75f442ab01be377aa9edde4f6704"
+  }
+}

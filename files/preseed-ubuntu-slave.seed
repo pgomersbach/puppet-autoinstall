@@ -1,0 +1,68 @@
+d-i debian-installer/locale string en_US
+
+d-i console-setup/ask_detect boolean false
+d-i console-setup/layoutcode string us
+
+d-i netcfg/choose_interface select eth0
+d-i netcfg/get_hostname string unassigned-hostname
+d-i netcfg/get_domain string unassigned-domain
+d-i netcfg/wireless_wep string
+# d-i netcfg/dhcp_hostname string radish
+
+d-i mirror/country string 
+d-i mirror/http/hostname string nl.archive.ubuntu.com
+d-i mirror/http/directory string /ubuntu
+d-i mirror/http/proxy string
+d-i mirror/http/mirror select NL.archive.ubuntu.com
+
+d-i clock-setup/utc boolean true
+
+d-i time/zone string Europe/Amsterdam
+
+d-i partman-auto/method string regular
+d-i partman/choose_partition select Finish partitioning and write changes to disk
+d-i partman/confirm boolean true
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-auto/choose_recipe select atomic
+d-i partman/default_filesystem string ext4
+d-i partman/confirm_write_new_label boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+d-i base-installer/kernel/image string linux-generic
+
+d-i passwd/root-login boolean true
+d-i passwd/make-user boolean false
+d-i passwd/root-password-crypted password $1$3KOo0Xcs$k6SMBqFpYw.xVM2Y9b1XX0
+
+d-i apt-setup/restricted boolean true
+d-i apt-setup/universe boolean true
+d-i apt-setup/backports boolean true
+
+d-i debian-installer/allow_unauthenticated string true
+
+tasksel tasksel/first multiselect ubuntu-server
+d-i pkgsel/include string openssh-server build-essential
+d-i pkgsel/upgrade select full-upgrade
+d-i pkgsel/install-language-support boolean false
+d-i pkgsel/update-policy select unattended-upgrades
+d-i pkgsel/updatedb boolean false
+
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+
+d-i finish-install/reboot_in_progress note
+
+xserver-xorg xserver-xorg/autodetect_monitor boolean true
+xserver-xorg xserver-xorg/config/monitor/selection-method \
+       select medium
+xserver-xorg xserver-xorg/config/monitor/mode-list \
+       select 1024x768 @ 60 Hz
+
+d-i preseed/late_command string in-target /usr/bin/wget https://github.com/pgomersbach/puppet-autoinstall/raw/master/files/scripts/add-to-foreman.sh -O /usr/local/bin/cloud-puppet.sh; \
+  in-target /bin/chmod +x /usr/local/bin/cloud-puppet.sh; \
+  echo "/usr/local/bin/cloud-puppet.sh" > /target/root/install.sh; \
+  echo "sed -i 's_sh /root/install.sh_exit 0_' /etc/rc.local" >> /target/root/install.sh; \
+  in-target /bin/chmod +x /root/install.sh; \
+  in-target /bin/sed -i 's_exit 0_sh /root/install.sh_' /etc/rc.local

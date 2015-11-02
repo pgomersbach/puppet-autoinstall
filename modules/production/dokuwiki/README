@@ -1,0 +1,31 @@
+puppet-dokuwiki
+Installes and configures dokuwiki on debian systems.
+Written by Paul Gomersbach, 2012-11-01.
+
+Overview:
+  Installs and configures dokuwiki module including the following extensions:
+  plugin_fckg_lite
+  plugin_indexmenu
+  template_arctic
+  puppetdoc
+  And optional activedirectory
+
+  Although the distributed copy only supports  Debian/Ubuntu,
+  this module should work, with minor modifications, on
+  any system that supports dokuwiki.
+
+
+Prerequisites:
+  This module
+
+Configuration:
+  Set optional the active directory server ($ad_servers), edit the local.erb template and 
+  then include the class for your node(s):
+
+    node 'prod.example.com' {
+      include dokuwiki
+    }
+
+Todo:
+  Add more then debian
+  Make cn override by parameter

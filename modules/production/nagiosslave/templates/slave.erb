@@ -1,0 +1,9 @@
+<%= fqdn %>,Root Partition,check_disk -w 10% -c 5% -p /
+<%= fqdn %>,Current load,check_load -w 7.0,5.0,4.0 -c 10.0,8.0,7.0
+<%= fqdn %>,Puppet running,check_file_age -w 6000 -c 8000 /var/lib/puppet/state/state.yaml
+<%= fqdn %>,Total Processes,check_procs -w 400 -c 600 -s RSZDT
+<%= fqdn %>,Swap Usage,check_swap -w 10% -c 5%
+<%= fqdn %>,Eth0 load,check_snmp_int.pl -H 127.0.0.1 -C public -n eth0 -w 0,0 -c 0,0 -f
+<%= fqdn %>,Outside IP address,check_outsideip.sh
+<%= fqdn %>,Service Checks,check_nagios_nrservice.sh
+<%= fqdn %>,Hosts Checks,check_nagios_nrhosts.sh
