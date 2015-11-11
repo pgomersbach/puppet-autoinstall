@@ -1,7 +1,18 @@
 #!/bin/bash
 set -e
 
-apt-get install genisoimage
+if [ "$(id -u)" != "0" ]; then
+  echo "This script must be run as root." >&2
+  exit 1
+fi
+
+if which genisoimage >/dev/null; then
+    echo "genisoimage exists"
+else
+    echo "genisoimage does not exist, try to install"
+    apt-get install genisoimage
+fi
+
 cd ~
 mkdir ~/original-iso custom-iso
 if [ ! -f /tmp/ubuntu-14.04.3-server-amd64.iso ]; then
@@ -22,7 +33,7 @@ append file=/cdrom/preseed/seed.seed initrd=/install/initrd.gz locale=en_US auto
 
 EOF
 
-genisoimage -R -J -l -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -z -iso-level 4 -c isolinux/isolinux.cat -o ubuntu-14.04.3-custom-amd64.iso custom-iso/
+genisoimage -R -J -l -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -z -iso-level 4 -c isolinux/isolinux.cat -o /tmp/ubuntu-14.04.3-custom-amd64.iso custom-iso/
 rm -rf original-iso custom-iso
 echo "The custom iso image: /tmp/ubuntu-14.04.3-custom-amd64.iso"
 cd -
