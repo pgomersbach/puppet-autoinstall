@@ -1,10 +1,12 @@
 #!/bin/bash
+set -e
+
 apt-get install genisoimage
-cd /tmp
-mkdir original-iso custom-iso
+cd ~
+mkdir ~/original-iso custom-iso
 if [ ! -f /tmp/ubuntu-14.04.3-server-amd64.iso ]; then
     echo "Iso image not found, downloading"
-    wget http://releases.ubuntu.com/14.04/ubuntu-14.04.3-server-amd64.iso
+    wget http://releases.ubuntu.com/14.04/ubuntu-14.04.3-server-amd64.iso -O /tmp/ubuntu-14.04.3-server-amd64.iso
 fi
 mount -o loop /tmp/ubuntu-14.04.3-server-amd64.iso ./original-iso
 cp -r ./original-iso/* ./custom-iso/
