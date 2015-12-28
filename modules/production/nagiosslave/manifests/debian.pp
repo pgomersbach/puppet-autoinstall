@@ -431,7 +431,7 @@ $rndrestart = fqdn_rand(30)
     notify  => Exec['update-nagiosslave.conf'],
   }
   
-  file { '/usr/lib/nagios/plugins/check_webinject':
+  file { '/usr/lib/nagios/plugins/check_openmanage.pl':
     mode    => '0755',
     owner   => root,
     group   => root,
