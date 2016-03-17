@@ -448,6 +448,15 @@ $rndrestart = fqdn_rand(30)
     require => File['/etc/nagios-plugins/plugins.d'],
     notify  => Exec['update-nagiosslave.conf'],
   }
+    
+    file { '/usr/lib/nagios/plugins/check_disk.pl':
+    mode    => '0755',
+    owner   => root,
+    group   => root,
+    source  => 'puppet:///modules/nagiosslave/check_disk.pl',
+    require => File['/etc/nagios-plugins/plugins.d'],
+    notify  => Exec['update-nagiosslave.conf'],
+  }
   
   if file_exists("/etc/puppet/modules/production/nagiosslave/files/checks/${fqdn}.conf") == 1 {
     file { "/etc/nagios-plugins/plugins.d/${fqdn}.conf":
