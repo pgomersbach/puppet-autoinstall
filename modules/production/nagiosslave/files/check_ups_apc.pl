@@ -76,8 +76,8 @@ $temperature = 0;
 $remaining_time_crit = 5;
 $output_load_crit = 80;
 $output_load_warn = 70;
-$temperature_crit = 38;
-$temperature_warn = 35;
+$temperature_crit = 48;
+$temperature_warn = 45;
 $battery_capacity_crit = 35;
 $battery_capacity_warn = 65;
 
