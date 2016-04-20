@@ -26,6 +26,7 @@ class vmwaretools::config_tools {
   exec { 'vmware_config_tools':
     command => '/usr/bin/vmware-config-tools.pl -d',
     creates => $vmwaretools::params::config_creates,
+    timeout => 600,
   }
 
 }
