@@ -1052,14 +1052,14 @@ if ($NAG_STATE eq 'DOWN' || $NAG_STATE eq 'UNREACHABLE')
    {
    # Paul Gomersbach, add link to topdesk message
    #$TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST reports to be $NAG_STATE. - Message: $NAG_MESSAGE";
-   $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST reports to be $NAG_STATE. - Message: $NAG_MESSAGE http://nagios.rely.nl/nagiosxi/includes/components/xicore/status.php?host=$NAG_HOST";
+   $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST reports to be $NAG_STATE. - Message: $NAG_MESSAGE https://nagios.rely.nl/nagiosxi/includes/components/xicore/status.php?host=$NAG_HOST";
    }
 
 if ($NAG_STATE eq 'CRITICAL' || $NAG_STATE eq 'WARNING' || $NAG_STATE eq 'UNKNOWN')
    {
    # Paul Gomersbach, add link to topdesk message
    #$TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST - Service $NAG_SERVICE reports to be $NAG_STATE. - Message: $NAG_MESSAGE";
-   $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST - Service $NAG_SERVICE reports to be $NAG_STATE. - Message: $NAG_MESSAGE http://nagios.rely.nl/nagiosxi/includes/components/xicore/status.php?host=$NAG_HOST";
+   $TD_MESSAGE="$TD_TIMESTAMP  $TD_USER:  Host $NAG_HOST - Service $NAG_SERVICE reports to be $NAG_STATE. - Message: $NAG_MESSAGE https://nagios.rely.nl/nagiosxi/includes/components/xicore/status.php?host=$NAG_HOST";
    }
 
 # Now enough of the skirmish - let's get real
